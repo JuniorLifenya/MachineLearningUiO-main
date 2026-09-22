@@ -62,6 +62,11 @@ def ols_fit(X,y,rcond=None):
     Xty = X.T @ y
     t = np.linalg.pinv(XtX,rcond=rcond) @ Xty
 
+    # Instead np.lingalg.lstsq(X,y) is also more numerically stable and standard
+
+    # If XTX is invertible then np.linalg.solve(XtX,Xty)
+    # Faster...will check for my project really
+
     return t
 
 def predict(X,t):
@@ -69,4 +74,76 @@ def predict(X,t):
         Linear prediction: y_hat = X @ t 
     """
     return X @ t
+
+# ----- Small interface so that I can change models more easily -----
+class LinearModel:
+    """
+        Base linear model: y = X @ theta.
+    """
+    def __init__(self,fit_fn):
+        self.fit_fn = fit_fn
+        self.theta = None
+    def fit(self,X,y):
+        self.theta = self.fit_fn(X,y)
+        return self 
+    def prediction(self,X):
+        return X @ self.theta
+
+# Usage
+ols = LinearModel(ols_fit).fit(X_train,y_train)
+y_pred = ols.predicti(X_test)
+
+def mse(y_true, y_pred):
+    return np.mean((y_true - y_pred) ** 2)
+
+
+def rmse(y_true, y_pred):
+    return np.sqrt(mse(y_true, y_pred))
+
+
+def r2(y_true, y_pred):
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - y_true.mean()) ** 2)
+    return 1 - ss_res / ss_tot
+
+
+def evaluate(y_true, y_pred, name="Model"):
+    metrics = {
+        "MSE": mse(y_true, y_pred),
+        "RMSE": rmse(y_true, y_pred),
+        "R2": r2(y_true, y_pred),
+    }
+    print(f"{name}: MSE={metrics['MSE']:.4f}, "
+          f"RMSE={metrics['RMSE']:.4f}, R2={metrics['R2']:.4f}")
+    return metrics
+
+ # --- 6. Plot ---
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+# Without intercept
+axes[0].scatter(X, y, alpha=0.7, label="Data")
+x_sorted = np.sort(X, axis=0)
+axes[0].plot(x_sorted, predict(x_sorted, theta_no_int),
+                 color="red", label=f"OLS: y = {theta_no_int[0]:.2f} x")
+axes[0].set_xlabel("x")
+axes[0].set_ylabel("y")
+axes[0].set_title("OLS without intercept")
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# With intercept
+axes[1].scatter(X, y, alpha=0.7, label="Data")
+axes[1].plot(x_sorted, predict(add_intercept(x_sorted), theta_with_int),
+                 color="green",
+                 label=f"OLS: y = {theta_with_int[0]:.2f} + {theta_with_int[1]:.2f} x")
+axes[1].set_xlabel("x")
+axes[1].set_ylabel("y")
+axes[1].set_title("OLS with intercept")
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+
 
