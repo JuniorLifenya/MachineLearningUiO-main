@@ -39,3 +39,34 @@ def data_generation(n=40,n_features = 1,noise=11.0,seed = 42,true_coef = None,x_
     # I will change the true value later for recovery tests of a known signal for example
     # My project has 11 sectors so I will use that 
     return X,y, true_coef
+
+def add_intercept(X):
+    """
+        Since I used soo much time to understand 
+        this both numerically and geometrically
+        I will hence include it here so that it is callable
+        For now I will just include the centered case and then compare later really
+    """
+    return np.hstack([np.ones((X.shape[0],1)), X])
+
+def ols_fit(X,y,rcond=None):
+    """
+        Ordinary least Squares via the normal equation
+        t = (X^T X)^{-1} X^T y (t is short for theta in the way I like things)
+        uses np.linalg.pinv for numerical stability 
+        It handles rank deficiancy
+        In general inv fails if XTX is singular (features >> observations/samples)
+    """
+    # Normal eq
+    XtX = X.T @ X
+    Xty = X.T @ y
+    t = np.linalg.pinv(XtX,rcond=rcond) @ Xty
+
+    return t
+
+def predict(X,t):
+    """
+        Linear prediction: y_hat = X @ t 
+    """
+    return X @ t
+
