@@ -169,20 +169,21 @@ def standardize_polynomials(X_train, X_test, intercept=True):
     is transformed with the same means and stds. This is the correct
     workflow: no information from the test set enters the scaling.
 
+    Edge case: if degree == 0 with intercept=True, there are no
+    non-intercept columns to scale. Return the arrays unchanged and
+    a None scaler. Callers must handle the None scaler.
+
     Parameters
     ----------
     X_train, X_test : ndarray
     intercept : bool
-        If True, column 0 of both arrays is treated as the intercept
-        and left unchanged.
 
     Returns
     -------
     X_train_scaled, X_test_scaled : ndarray
-    scaler : StandardScaler (fitted on the non-intercept columns)
+    scaler : StandardScaler or None
     """
     if intercept:
-        # Split off intercept column
         intercept_train = X_train[:, :1]
         intercept_test = X_test[:, :1]
         body_train = X_train[:, 1:]
@@ -190,6 +191,10 @@ def standardize_polynomials(X_train, X_test, intercept=True):
     else:
         body_train = X_train
         body_test = X_test
+
+    # --- Edge case: nothing to scale (degree 0 with intercept) ---
+    if body_train.shape[1] == 0:
+        return X_train.copy(), X_test.copy(), None
 
     scaler = StandardScaler()
     body_train_scaled = scaler.fit_transform(body_train)
@@ -202,8 +207,6 @@ def standardize_polynomials(X_train, X_test, intercept=True):
             scaler,
         )
     return body_train_scaled, body_test_scaled, scaler
-
-
 # ============================================================
 # 4. METRICS
 # ============================================================
