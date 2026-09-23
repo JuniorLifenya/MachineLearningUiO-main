@@ -102,11 +102,14 @@ def generate_data(n=100, sigma=0.1, seed=2026, x_min=-1.0, x_max=1.0):
 
 def ols_fit(X, y, rcond=None):
     """
-    OLS via the normal equation, solved with the pseudoinverse.
-        θ = (X^T X)^{-1} X^T y
-    `pinv` handles rank-deficient X^T X gracefully, which matters for
-    high-degree polynomial fits on small samples.
+        OLS via the normal equation, solved with the pseudoinverse.
+            θ = (X^T X)^{-1} X^T y
+        `pinv` handles rank-deficient X^T X gracefully, which matters for
+        high-degree polynomial fits on small samples.
+        We try SVD for transparancy really
     """
+    U,s,Vt = np.linalg.svd(X, full_matrices= False)
+    
     XtX = X.T @ X
     Xty = X.T @ y
     return np.linalg.pinv(XtX, rcond=rcond) @ Xty
