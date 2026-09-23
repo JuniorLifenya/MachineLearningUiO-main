@@ -13,7 +13,7 @@ This module covers:
             Connects the results to the SVD shrinkage of singular-value
             modes discussed in Chapter 3 of the lecture notes.
 
-Design notes
+Some notes
 ------------
 - Runge's function f(x) = 1/(1 + 25x²) on [-1, 1] is the testbed.
   It is smooth but has strong curvature near |x| = 1; high-degree
@@ -24,7 +24,7 @@ Design notes
   scales: x^15 ranges over [-1, 1] but is tiny in magnitude almost
   everywhere. Without standardisation, X^T X is ill-conditioned and
   the normal equation becomes unstable for d ≳ 8. Standardisation
-  (subtract mean, divide by std, per column, fitted on train only)
+  (centering,divide by std, per column, fitted on train only)
   fixes this.
 - Scaling is done INSIDE the train/test split: the scaler is fit on
   the training set only, then applied to the test set. Fitting on all
@@ -32,11 +32,6 @@ Design notes
 - Ridge closes the gap when OLS blows up: for large d, Ridge with
   the right λ recovers a stable solution while OLS returns a wild
   coefficient vector dominated by noise.
-- SVD connection: writing X = U Σ V^T, the Ridge solution is
-    θ_ridge = V diag(σ_i / (σ_i² + λ)) U^T y.
-  Components with small σ_i (near-null directions of X) are heavily
-  shrunk by λ. OLS (λ = 0) divides by σ_i², amplifying noise in those
-  same directions. This is the shrinkage-of-singular-values story.
 """
 
 import numpy as np
