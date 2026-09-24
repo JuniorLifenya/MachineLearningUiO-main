@@ -109,7 +109,7 @@ def ols_fit(X, y, rcond=None):
         We try SVD for transparancy really
     """
     U,s,Vt = np.linalg.svd(X, full_matrices= False)
-    
+    s_inv = np.array([1.0 / si if si > rcond * s[0] else 0.0 for si in s])
     XtX = X.T @ X
     Xty = X.T @ y
     return np.linalg.pinv(XtX, rcond=rcond) @ Xty
