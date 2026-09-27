@@ -38,63 +38,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-
-
-# ============================================================
-# 1. THE FUNCTION AND DESIGN MATRIX
-# ============================================================
-
-def runge(x):
-    """Runge's function: f(x) = 1 / (1 + 25 x²)."""
-    return 1.0 / (1.0 + 25.0 * x ** 2)
-
-
-def design_matrix(x, degree, intercept=True):
-    """
-    Polynomial design matrix.
-
-    Columns are [1, x, x², ..., x^degree] if intercept=True,
-    or [x, x², ..., x^degree] if intercept=False.
-
-    Parameters
-    ----------
-    x : ndarray of shape (n,)
-    degree : int
-    intercept : bool
-
-    Returns
-    -------
-    X : ndarray of shape (n, degree + 1) or (n, degree)
-    """
-    x = np.asarray(x).ravel()
-    start = 0 if intercept else 1
-    return np.vstack([x ** p for p in range(start, degree + 1)]).T
-
-
-def generate_data(n=100, sigma=0.1, seed=2026, x_min=-1.0, x_max=1.0):
-    """
-    Sample Runge's function with additive Gaussian noise.
-
-    Parameters
-    ----------
-    n : int
-        Number of samples.
-    sigma : float
-        Noise standard deviation.
-    seed : int
-    x_min, x_max : float
-        Domain boundaries. Defaults to [-1, 1].
-
-    Returns
-    -------
-    x : ndarray of shape (n,)
-    y : ndarray of shape (n,)
-    """
-    rng = np.random.default_rng(seed)
-    x = np.sort(rng.uniform(x_min, x_max, n))
-    y = runge(x) + rng.normal(0.0, sigma, n)
-    return x, y
-
+import sys 
+from pathlib import Path
+project_root = Path(__file__).parent
+sys.path.insert(0,str(project_root))
+from function_setup import runge, design_matrix, generate_data
 
 # ============================================================
 # 2. MODEL FITTING
@@ -231,7 +179,7 @@ def experiment_ols_degree(x, y, degrees, test_size=0.3, seed=42,
       2. Train/test split.
       3. Optionally standardise features (fit on train only).
       4. Fit OLS, predict on train and test.
-      5. Record MSE and R² for both sets, plus the coefficient vector.
+      5. Record MSE and R^2 for both sets, plus the coefficient vector.
 
     Returns
     -------
