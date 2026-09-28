@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 # Runge's function is defined on [-1,1] with 
 # Additive Gaussian noise, and pol design matrix
 
-
-
 # ============================================================
 # 1. THE FUNCTION AND DESIGN MATRIX
 # ============================================================
@@ -74,4 +72,27 @@ plt.plot(xx, runge(xx), color = "green", label= "Runge function fitting test")
 plt.scatter(x,y, s = 12, color = "orange",label =" data, $\sigma = {sigma}$")
 plt.xlabel("x"); plt.ylabel("y");plt.legend(frameon = True)
 plt.show()
+
+
+# ============================================================
+# Fitting Codes 
+# ============================================================
+
+def fit_ols_SVD(X,y,rcond = 1e-15):
+    """
+    OLS via SVD: theta = V diag(1/s_i) U^T y.
+    Singular values below rcond * s_max are zeroed.
+    """
+    U, s, Vt = np.linalg.svd(X, full_matrices=False)
+    s_inv = np.where(s > rcond * s[0], 1.0 / s, 0.0)
+    return Vt.T @ (s_inv * (U.T @ y))
+
+def fit_ridge(X,y,lam):
+    """
+    Ridge via SVD: theta = V diag(s_i / (s_i^2 + lam)) U^T y.
+    This is the shrinkage view.
+    """
+    U, s, Vt = np.linalg.svd(X, full_matrices=False)
+    shrink = s / (s ** 2 + lam)
+    return Vt.T @ (shrink * (U.T @ y))
 
