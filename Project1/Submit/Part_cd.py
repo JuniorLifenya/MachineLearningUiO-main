@@ -10,7 +10,7 @@ from function_setup import fit_ols_SVD,fit_ridge
 
 
 # ==================================================================
-# Training and Test MSE. Part C) Note
+# Part C) Notes Training and Test MSE. 
 # For each polynomial degree, fit OLS many times on bootstrap 
 # samples of the training data,then compare the variability and mean
 # of predictions against fixed test set
@@ -69,7 +69,7 @@ def plot_bias_variance(results):
     plt.yscale("log")
     plt.xlabel("Degree"); plt.legend(); plt.grid(True)
     plt.show()
-
+ 
 x,y = generate_data()
 results = [
     bootstrap_bias_variance(x,y,degree=d)
@@ -77,3 +77,46 @@ results = [
 ]
 
 plot_bias_variance(results)
+
+
+# ==================================================================
+# Part d) Notes. CV and one Fold    
+# Train on the indices NOT in the fold
+# Predict on the indices IN the fold
+# MSE on the fold 
+# ==================================================================
+
+def cv_score_degree(x,y,degree,lam = 0.0, seed = 42):
+    X_all = design_matrix(x,degree,intercept=False)
+    kf = KFold(n_splits=k, shuffle = True, randome_state = seed)
+
+    fold_mses = []
+    for tr_idx,va_idx in kf.split(X_all):
+        X_tr , X_va = X_all[tr_idx], X_all[va_idxidx]
+        y_tr,y_va = y[tr_idx], y[va_idx]
+
+        # For degree 0: no features so predict the mean
+        if degree == 0.0:
+            y_pred = np.full(len(y_va),y_tr.mean())
+            fold_mses.append(np.mean((y_va)-y_pred)**2)
+            continue
+
+        # Scalar again inside fold
+        scalar = StandardScaler().fit(X_tr)
+        X_tr = scalar.transform(X_tr)
+        X_va = scalar.transform(X_va)
+
+        # Center y inside the fold
+        y_mean = y_tr.mean()
+        y_tr_c = y_tr - y_mean
+
+        # Fit 
+        if lam == 0.0:
+            theta = fit_ols_SVD(X_tr,y_tr_c)
+        else:
+            theta = fit_ridge(X_tr,y_tr_c,lam)
+
+        y_pred = X_va @ theta + y_mean
+        fold_mses.append(np.mean((y_va-y_pred)**2))
+
+    return float (np.mean(fold_mses))
