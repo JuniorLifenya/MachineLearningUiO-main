@@ -10,7 +10,9 @@ import matplotlib.pyplot as plt
 # ============================================================
 
 def runge(x):
-    """Runge's function: f(x) = 1 / (1 + 25 x²)."""
+    """
+    Runge's function: f(x) = 1 / (1 + 25 x²).
+    """
     return 1.0 / (1.0 + 25.0 * x ** 2)
 
 
@@ -21,15 +23,6 @@ def design_matrix(x, degree, intercept=True):
     Columns are [1, x, x², ..., x^degree] if intercept=True,
     or [x, x², ..., x^degree] if intercept=False.
 
-    Parameters
-    ----------
-    x : ndarray of shape (n,)
-    degree : int
-    intercept : bool
-
-    Returns
-    -------
-    X : ndarray of shape (n, degree + 1) or (n, degree)
     """
     x = np.asarray(x).ravel()
     start = 0 if intercept else 1
@@ -40,20 +33,6 @@ def generate_data(n=100, sigma=0.1, seed=2026, x_min=-1.0, x_max=1.0):
     """
     Sample Runge's function with additive Gaussian noise.
 
-    Parameters
-    ----------
-    n : int
-        Number of samples.
-    sigma : float
-        Noise standard deviation.
-    seed : int
-    x_min, x_max : float
-        Domain boundaries. Defaults to [-1, 1].
-
-    Returns
-    -------
-    x : ndarray of shape (n,)
-    y : ndarray of shape (n,)
     """
     rng = np.random.default_rng(seed)
     x = np.sort(rng.uniform(x_min, x_max, n))
@@ -83,6 +62,7 @@ def fit_ols_SVD(X,y,rcond = 1e-15):
     OLS via SVD: theta = V diag(1/s_i) U^T y.
     Singular values below rcond * s_max are zeroed.
     """
+
     U, s, Vt = np.linalg.svd(X, full_matrices=False)
     s_inv = np.where(s > rcond * s[0], 1.0 / s, 0.0)
     return Vt.T @ (s_inv * (U.T @ y))
@@ -92,6 +72,7 @@ def fit_ridge(X,y,lam):
     Ridge via SVD: theta = V diag(s_i / (s_i^2 + lam)) U^T y.
     This is the shrinkage view.
     """
+
     U, s, Vt = np.linalg.svd(X, full_matrices=False)
     shrink = s / (s ** 2 + lam)
     return Vt.T @ (shrink * (U.T @ y))

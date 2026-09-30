@@ -1,37 +1,37 @@
 """
-Project 1, Parts a) and b): OLS and Ridge on Runge's function
-=============================================================
+    Project 1, Parts a) and b): OLS and Ridge on Runge's function
+    =============================================================
 
-FYS-STK3155/FYS4155, Fall 2026.
+    FYS-STK3155/FYS4155, Fall 2026.
 
-This module covers:
-  Part a) — OLS with polynomial features up to degree 15+, with
-            scaling/centering and a train/test split. Reports MSE and R²
-            as functions of polynomial degree, and plots the fitted
-            coefficients θ against degree.
-  Part b) — Ridge regression with the same pipeline, sweeping λ.
-            Connects the results to the SVD shrinkage of singular-value
-            modes discussed in Chapter 3 of the lecture notes.
+    This module covers:
+    Part a) — OLS with polynomial features up to degree 15+, with
+                scaling/centering and a train/test split. Reports MSE and R²
+                as functions of polynomial degree, and plots the fitted
+                coefficients θ against degree.
+    Part b) — Ridge regression with the same pipeline, sweeping λ.
+                Connects the results to the SVD shrinkage of singular-value
+                modes discussed in Chapter 3 of the lecture notes.
 
-Some notes
-------------
-- Runge's function f(x) = 1/(1 + 25x²) on [-1, 1] is the testbed.
-  It is smooth but has strong curvature near |x| = 1; high-degree
-  polynomials fitted on uniform points diverge wildly at the edges
-  (Runge phenomenon). This is exactly what makes it a good case study
-  for regularisation.
-- Polynomial features [1, x, x², ..., x^d] have wildly different
-  scales: x^15 ranges over [-1, 1] but is tiny in magnitude almost
-  everywhere. Without standardisation, X^T X is ill-conditioned and
-  the normal equation becomes unstable for d ≳ 8. Standardisation
-  (centering,divide by std, per column, fitted on train only)
-  fixes this.
-- Scaling is done INSIDE the train/test split: the scaler is fit on
-  the training set only, then applied to the test set. Fitting on all
-  data leaks test information into training and biases the test error.
-- Ridge closes the gap when OLS blows up: for large d, Ridge with
-  the right λ recovers a stable solution while OLS returns a wild
-  coefficient vector dominated by noise.
+    Some notes
+    ------------
+    - Runge's function f(x) = 1/(1 + 25x²) on [-1, 1] is the testbed.
+    It is smooth but has strong curvature near |x| = 1; high-degree
+    polynomials fitted on uniform points diverge wildly at the edges
+    (Runge phenomenon). This is exactly what makes it a good case study
+    for regularisation.
+    - Polynomial features [1, x, x², ..., x^d] have wildly different
+    scales: x^15 ranges over [-1, 1] but is tiny in magnitude almost
+    everywhere. Without standardisation, X^T X is ill-conditioned and
+    the normal equation becomes unstable for d ≳ 8. Standardisation
+    (centering,divide by std, per column, fitted on train only)
+    fixes this.
+    - Scaling is done INSIDE the train/test split: the scaler is fit on
+    the training set only, then applied to the test set. Fitting on all
+    data leaks test information into training and biases the test error.
+    - Ridge closes the gap when OLS blows up: for large d, Ridge with
+    the right λ recovers a stable solution while OLS returns a wild
+    coefficient vector dominated by noise.
 """
 
 import numpy as np
@@ -48,55 +48,34 @@ from function_setup import runge, design_matrix, generate_data
 # 2. MODEL FITTING
 # ============================================================
 
-def ols_fit(X, y, rcond=None):
+def ols_fit(X, y, rcond=1e-12):
     """
-        OLS via the normal equation, solved with the pseudoinverse.
-            θ = (X^T X)^{-1} X^T y
-        `pinv` handles rank-deficient X^T X gracefully, which matters for
-        high-degree polynomial fits on small samples.
-        We try SVD for transparancy really
+        OLS via SVD (numerically stable, no normal equations):
+
+            X = U diag(s) V^T
+            θ = V diag(1/s_i) U^T y      with 1/s_i -> 0 for s_i < rcond * s_max
+
+        Thresholding tiny singular values gives the minimum-norm least-squares
+        solution when X is rank-deficient (which it is for high-degree
+        polynomial fits on small n).
     """
-    U,s,Vt = np.linalg.svd(X, full_matrices= False)
-    s_inv = np.array([1.0 / si if si > rcond * s[0] else 0.0 for si in s])
-    XtX = X.T @ X
-    Xty = X.T @ y
-    return np.linalg.pinv(XtX, rcond=rcond) @ Xty
+    U, s, Vt = np.linalg.svd(X, full_matrices=False)
+    s_inv = np.where(s > rcond * s[0], 1.0 / s, 0.0)
+    return Vt.T @ (s_inv * (U.T @ y))
 
 
 def ridge_fit(X, y, lam=1.0):
-    """
-    Ridge regression via the normal equation.
-
-        θ = (X^T X + λ I)^{-1} X^T y
-
-    Note: we do NOT penalise the intercept term when intercept=True,
-    i.e. we do not add λ to the (0, 0) entry of the regularisation
-    matrix. This is the standard convention (sklearn's
-    Ridge(fit_intercept=True) does the same). If you include the
-    intercept column and penalise it, the model can be forced to
-    shrink its own mean, which is usually not what you want.
-
-    Parameters
-    ----------
-    X : ndarray of shape (n, p)
-        Design matrix, possibly with intercept column at index 0.
-    y : ndarray of shape (n,)
-    lam : float
-        Regularisation strength.
-
-    Returns
-    -------
-    theta : ndarray of shape (p,)
-    """
     n_features = X.shape[1]
     I = np.eye(n_features)
-    # Do not penalise the intercept (assumed at column 0).
-    I[0, 0] = 0.0
-    return np.linalg.pinv(X.T @ X + lam * I) @ X.T @ y
+    I[0, 0] = 0.0                       # don't penalise intercept
+    A = X.T @ X + lam * I
+    return np.linalg.solve(A, X.T @ y)
 
 
 def predict(X, theta):
-    """Linear prediction: y_hat = X @ theta."""
+    """
+    Linear prediction: y_hat = X @ theta.
+    """
     return X @ theta
 
 
@@ -106,26 +85,16 @@ def predict(X, theta):
 
 def standardize_polynomials(X_train, X_test, intercept=True):
     """
-    Standardise polynomial features column-wise.
+        Standardise polynomial features column-wise.
 
-    The intercept column (all ones) is left alone — standardising a
-    constant is undefined. The scaler is fit on X_train only; X_test
-    is transformed with the same means and stds. This is the correct
-    workflow: no information from the test set enters the scaling.
+        The intercept column (all ones) is left alone — standardising a
+        constant is undefined. The scaler is fit on X_train only; X_test
+        is transformed with the same means and stds. This is the correct
+        workflow: no information from the test set enters the scaling.
 
-    Edge case: if degree == 0 with intercept=True, there are no
-    non-intercept columns to scale. Return the arrays unchanged and
-    a None scaler. Callers must handle the None scaler.
-
-    Parameters
-    ----------
-    X_train, X_test : ndarray
-    intercept : bool
-
-    Returns
-    -------
-    X_train_scaled, X_test_scaled : ndarray
-    scaler : StandardScaler or None
+        Edge case: if degree == 0 with intercept=True, there are no
+        non-intercept columns to scale. Return the arrays unchanged and
+        a None scaler. Callers must handle the None scaler.
     """
     if intercept:
         intercept_train = X_train[:, :1]
@@ -172,19 +141,14 @@ def r2(y_true, y_pred):
 def experiment_ols_degree(x, y, degrees, test_size=0.3, seed=42,
                           scale=True, intercept=True):
     """
-    Sweep polynomial degree for OLS.
-
-    For each degree:
+      Sweep polynomial degree for OLS.
+      For each degree:
       1. Build the polynomial design matrix.
       2. Train/test split.
       3. Optionally standardise features (fit on train only).
       4. Fit OLS, predict on train and test.
       5. Record MSE and R^2 for both sets, plus the coefficient vector.
 
-    Returns
-    -------
-    dict with arrays: degrees, mse_train, mse_test, r2_train, r2_test,
-    and a list of coefficient vectors indexed by degree.
     """
     results = {
         "degrees": [],
@@ -234,16 +198,7 @@ def experiment_ols_degree(x, y, degrees, test_size=0.3, seed=42,
 def experiment_ridge(x, y, degrees, lambdas, test_size=0.3, seed=42,
                      scale=True, intercept=True):
     """
-    Sweep polynomial degree AND λ for Ridge.
-
-    Returns
-    -------
-    dict with:
-      degrees        : (D,)
-      lambdas        : (L,)
-      mse_test       : (D, L)
-      r2_test        : (D, L)
-      theta          : list of (D, L) arrays of coefficient vectors
+        Sweep polynomial degree AND λ for Ridge.
     """
     D = len(degrees)
     L = len(lambdas)
@@ -283,7 +238,7 @@ def experiment_ridge(x, y, degrees, lambdas, test_size=0.3, seed=42,
 
 def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
     """
-    Four panels telling the Part a) story:
+      Four panels telling the Part a) story:
       [0] MSE vs degree, scaled features (train and test)
       [1] R² vs degree, scaled features (train and test)
       [2] Fitted curves at three representative degrees
@@ -348,15 +303,16 @@ def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
 
     # --- Panel 3: Coefficient magnitudes vs degree ---
     ax = axes[1, 1]
-    max_deg = res_scaled["degrees"].max()
-    for i, d in enumerate(res_scaled["degrees"]):
-        theta = res_scaled["theta_train"][i]
-        ax.scatter([d] * len(theta), np.abs(theta),
-                   s=8, color="#34495e", alpha=0.5)
-    ax.set_yscale("log")
+    thetas = np.array([np.pad(t, (0, max_deg + 1 - len(t)), constant_values=np.nan)
+                    for t in res_scaled["theta_train"]])
+    for j in range(thetas.shape[1]):
+        ax.plot(res_scaled["degrees"], thetas[:, j], marker="o", markersize=3,
+                linewidth=1, alpha=0.7, label=f"$\\theta_{{{j}}}$")
+    ax.set_yscale("symlog", linthresh=1e-2)   # signed, handles zeros
     ax.set_xlabel("Polynomial degree")
-    ax.set_ylabel("|θ_j| (log scale)")
-    ax.set_title("Coefficient magnitudes vs degree")
+    ax.set_ylabel(r"$\theta_j$")
+    ax.set_title("Coefficients vs degree")
+    ax.legend(fontsize=7, ncol=2, frameon=False)
     ax.grid(True, alpha=0.3)
 
     plt.suptitle("Part a) — OLS on Runge's function",
@@ -369,7 +325,7 @@ def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
 
 def plot_part_b(x, y, ridge_res, ols_res, savepath=None):
     """
-    Four panels for Part b):
+      Four panels for Part b):
       [0] Test MSE heat map over (degree, λ)
       [1] Test MSE vs λ at three degrees
       [2] Coefficient shrinkage vs λ at fixed degree
@@ -552,15 +508,14 @@ def demo_part_b():
 
     return ridge_res, ols_res
 
-
 def verify_svd_shrinkage():
     """
-    Optional sanity check: confirm the SVD view of Ridge.
+        Optional sanity check: confirm the SVD view of Ridge.
 
-    Ridge solution in SVD coordinates:
-        theta = V @ diag(sigma_i / (sigma_i^2 + lambda)) @ U^T @ y
-    This should match the closed-form (X^T X + lambda I)^{-1} X^T y
-    to machine precision.
+        Ridge solution in SVD coordinates:
+            theta = V @ diag(sigma_i / (sigma_i^2 + lambda)) @ U^T @ y
+        This should match the closed-form (X^T X + lambda I)^{-1} X^T y
+        to machine precision.
     """
     x, y = generate_data(n=80, sigma=0.1, seed=1)
     X = design_matrix(x, 10)

@@ -4,16 +4,17 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import KFold
 
 from Part_ab import generate_data, runge, design_matrix
 from function_setup import fit_ols_SVD,fit_ridge
 
 
 # ==================================================================
-# Part C) Notes Training and Test MSE. 
-# For each polynomial degree, fit OLS many times on bootstrap 
+#           Part C) Notes Training and Test MSE. 
+#     For each polynomial degree, fit OLS many times on bootstrap 
 # samples of the training data,then compare the variability and mean
-# of predictions against fixed test set
+#           of predictions against fixed test set
 # ==================================================================
 
 def bootstrap_bias_variance(x, y, degree, B=100, test_size=0.3, seed=42):
@@ -80,38 +81,38 @@ plot_bias_variance(results)
 
 
 # ==================================================================
-# Part d) Notes. CV and one Fold    
-# Train on the indices NOT in the fold
-# Predict on the indices IN the fold
-# MSE on the fold 
+#           Part d) Notes. CV and one Fold    
+#       Train on the indices NOT in the fold
+#           Predict on the indices IN the fold
+#                   MSE on the fold 
 # ==================================================================
 
-def cv_score_degree(x,y,degree,lam = 0.0, seed = 42):
+def cv_score_degree(x,y,degree,k=5, lam = 0.0, seed = 42):
     X_all = design_matrix(x,degree,intercept=False)
-    kf = KFold(n_splits=k, shuffle = True, randome_state = seed)
+    kf = KFold(n_splits=k, shuffle = True, random_state = seed)
 
     fold_mses = []
     for tr_idx,va_idx in kf.split(X_all):
-        X_tr , X_va = X_all[tr_idx], X_all[va_idxidx]
+        X_tr , X_va = X_all[tr_idx], X_all[va_idx]
         y_tr,y_va = y[tr_idx], y[va_idx]
 
         # For degree 0: no features so predict the mean
-        if degree == 0.0:
+        if degree == 0:
             y_pred = np.full(len(y_va),y_tr.mean())
-            fold_mses.append(np.mean((y_va)-y_pred)**2)
+            fold_mses.append(np.mean((y_va-y_pred)**2))
             continue
 
-        # Scalar again inside fold
-        scalar = StandardScaler().fit(X_tr)
-        X_tr = scalar.transform(X_tr)
-        X_va = scalar.transform(X_va)
+        # scaler again inside fold
+        scaler = StandardScaler().fit(X_tr)
+        X_tr = scaler.transform(X_tr)
+        X_va = scaler.transform(X_va)
 
         # Center y inside the fold
         y_mean = y_tr.mean()
         y_tr_c = y_tr - y_mean
 
         # Fit 
-        if lam == 0.0:
+        if lam == 0:
             theta = fit_ols_SVD(X_tr,y_tr_c)
         else:
             theta = fit_ridge(X_tr,y_tr_c,lam)

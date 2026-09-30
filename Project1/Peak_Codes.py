@@ -90,7 +90,7 @@ def split_data(x, y, test_size=0.2, seed=2026):
 def fit_ols_svd(X, y, rcond=None):
     """
     OLS using the SVD directly.
-
         X = U diag(s) V^T
         X^+ = V diag(1/s) U^T
         theta = X^+ y
+    """
