@@ -17,25 +17,6 @@ from sklearn.preprocessing import StandardScaler
 def generate_data(n=40, n_features=1, noise=1.0, seed=42, true_coef=None):
     """
     Generate synthetic regression data.
-    
-    Parameters
-    ----------
-    n : int
-        Number of samples.
-    n_features : int
-        Number of features.
-    noise : float
-        Standard deviation of Gaussian noise.
-    seed : int
-        Random seed for reproducibility.
-    true_coef : array-like or None
-        True coefficients. If None, random uniform in [-3, 3].
-    
-    Returns
-    -------
-    X : ndarray of shape (n, n_features)
-    y : ndarray of shape (n,)
-    true_coef : ndarray of shape (n_features,)
     """
     rng = np.random.default_rng(seed)
     X = rng.normal(size=(n, n_features))
@@ -157,16 +138,6 @@ def bootstrap_sample(X, y, rng=None):
 def bootstrap_statistic(X, y, statistic_fn, n_bootstrap=1000, seed=42):
     """
     Compute a statistic on B bootstrap samples.
-    
-    Parameters
-    ----------
-    X, y : data
-    statistic_fn : callable(X, y) -> float or ndarray
-        The statistic to compute (e.g., mean, OLS coefficients).
-    n_bootstrap : int
-        Number of bootstrap samples.
-    
-    Returns
     -------
     boot_stats : ndarray of shape (n_bootstrap, ...)
     """
@@ -216,22 +187,6 @@ def bootstrap_ridge_coefficients(X, y, lam=1.0, n_bootstrap=1000, seed=42):
 def cross_validate(X, y, model_fn, k=5, seed=42, return_predictions=False):
     """
     K-fold cross-validation.
-    
-    Parameters
-    ----------
-    X, y : data
-    model_fn : callable(X_train, y_train) -> theta
-        Function that fits a model and returns parameters.
-    k : int
-        Number of folds.
-    return_predictions : bool
-        If True, return out-of-fold predictions.
-    
-    Returns
-    -------
-    cv_errors : list of float
-        Validation errors for each fold.
-    cv_predictions : ndarray (if return_predictions)
     """
     kf = KFold(n_splits=k, shuffle=True, random_state=seed)
     cv_errors = []
@@ -253,7 +208,9 @@ def cross_validate(X, y, model_fn, k=5, seed=42, return_predictions=False):
 
 
 def cv_summary(cv_errors, name="Model"):
-    """Print summary of cross-validation errors."""
+    """
+    Print summary of cross-validation errors.
+    """
     cv_errors = np.array(cv_errors)
     print(f"{name} CV: mean={cv_errors.mean():.4f}, std={cv_errors.std():.4f}, "
           f"min={cv_errors.min():.4f}, max={cv_errors.max():.4f}")
@@ -263,11 +220,6 @@ def cv_summary(cv_errors, name="Model"):
 def compare_models_cv(X, y, models_dict, k=5, seed=42):
     """
     Compare multiple models via cross-validation.
-    
-    Parameters
-    ----------
-    models_dict : dict
-        {name: model_fn} where model_fn(X_train, y_train) -> theta
     """
     results = {}
     for name, model_fn in models_dict.items():
@@ -316,7 +268,9 @@ def learning_curve(X, y, model_fn, train_sizes=None, k=5, seed=42):
 
 
 def plot_learning_curve(X, y, model_fn, model_name="Model", k=5, seed=42):
-    """Plot learning curve."""
+    """
+    Plot learning curve.
+    """
     sizes, train_err, val_err = learning_curve(X, y, model_fn, k=k, seed=seed)
     
     plt.figure(figsize=(8, 5))
@@ -377,7 +331,9 @@ def bias_variance_decomposition(X_train, y_train, X_test, y_test,
 # ============================================================
 
 def demo_week36():
-    """Run the full Week 36 demonstration."""
+    """
+    Run the full Week 36 demonstration.
+    """
     print("=" * 60)
     print("WEEK 36: RESAMPLING, BOOTSTRAP, CROSS-VALIDATION")
     print("=" * 60)
