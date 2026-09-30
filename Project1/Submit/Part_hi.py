@@ -38,7 +38,7 @@ def sgd(grad_fn,X,y,theta0,n_epochs, batch_size,eta,
                 v_hat = v / (1-0.999**t)
                 theta = theta -eta*m_hat / (np.sqrt(v_hat) + 1e-8)
             # extend for others as needed
-        return theta
+    return theta
 
 # mini-batch size (16, 32, 128, full), number of epochs, learning-rate schedule (constant vs decaying).
 # Discuss: smaller batches are noisier but escape sharp minima; 

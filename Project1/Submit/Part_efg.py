@@ -23,7 +23,7 @@ from Part_cd import cv_score_degree, bootstrap_bias_variance
 # ------------------- Cost Function First -------------------
 
 
-def cost_ols(X,y,theta):
+def cost_ols(theta,X,y):
     return jnp.mean((y-X @ theta)**2)
 
 def cost_ridge(theta,X,y,lam):
@@ -74,7 +74,7 @@ eta = 0.5 * eta_max_ols(X, y)   # safe: half the theoretical bound
 theta_gd, _ = gd(grad_ols_analytic, theta0, n_iter=5000, eta=eta, X=X, y=y)
 theta_closed = fit_ols_SVD(X, y)
 
-print(np.max(np.abs(grad_ols_ad(X,y,theta0) - grad_ols_analytic(theta0,X,y))))
+print(np.max(np.abs(grad_ols_ad(theta,X,y0) - grad_ols_analytic(theta0,X,y))))
 print(np.max(np.abs(theta_gd - theta_closed)))   # should be small
 
 # ==================================================================
