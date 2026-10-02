@@ -303,6 +303,7 @@ def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
 
     # --- Panel 3: Coefficient magnitudes vs degree ---
     ax = axes[1, 1]
+    max_deg = int(max(res_scaled["degrees"]))   
     thetas = np.array([np.pad(t, (0, max_deg + 1 - len(t)), constant_values=np.nan)
                     for t in res_scaled["theta_train"]])
     for j in range(thetas.shape[1]):
