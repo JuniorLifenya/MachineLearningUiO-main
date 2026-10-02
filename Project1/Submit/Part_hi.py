@@ -50,4 +50,4 @@ def sgd(grad_fn,X,y,theta0,n_epochs, batch_size,eta,
 #                     Use the CV setup from part d) 
 #               Pick (degree, lam) for OLS, Ridge, and Lasso,
 #                       Compare the three here
-# ==================================================================
+# ==================================================================    
