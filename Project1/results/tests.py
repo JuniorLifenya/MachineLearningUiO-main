@@ -46,6 +46,8 @@ print(f"Ridge |∇_an − ∇_ad|_∞ = {np.max(np.abs(g_an_ridge - g_ad_ridge))
 # (2) CLOSED-FORM CHECK:  GD must converge to fit_ols_SVD
 # =================================================================
 eta = 0.5 * eta_max_ols(X, 100)
+eta_explode = 1.5 * eta_max_ols(X, 100)
+
 theta_gd, hist_gd = gd(grad_ols_analytic, theta0,
                        n_iter=5000, eta=eta, X=X, y=y)
 theta_svd = fit_ols_SVD(X, y)
@@ -59,34 +61,43 @@ print(f"GD vs SVD  |Δθ|_∞ = {np.max(np.abs(theta_gd - theta_svd)):.2e}")
 fig, ax = plt.subplots(2, 2, figsize=(11, 7))
 
 # (a) fits — do GD and closed-form look the same?
-xx  = np.linspace(-1, 1, 400)
-Xx  = design_matrix(xx, degree, intercept=True)
+
 ax[0,0].plot(xx, runge(xx), 'g-', label='Runge')
 ax[0,0].scatter(x, y, s=12, c='orange', label='data')
 ax[0,0].plot(xx, Xx @ theta_svd, 'b--', label='SVD')
 ax[0,0].plot(xx, Xx @ theta_gd,  'r:',  label='GD')
 ax[0,0].legend(); ax[0,0].set_title(f'degree={degree}')
 
-# (b) normal-equation residual for SVD fit  (should be ~1e-12)
-resid = X.T @ (X @ theta_svd - y)
-ax[0,1].bar(np.arange(degree+1), np.abs(resid))
-ax[0,1].set_yscale('log')
-ax[0,1].set_title(r'$|X^T(X\theta_{\rm SVD}-y)|$')
-
-# (c) convergence of GD toward SVD
+# (b) convergence of GD toward SVD
 dist = [np.linalg.norm(t - theta_svd, ord=np.inf) for t in hist_gd]
 ax[1,0].semilogy(dist)
 ax[1,0].axhline(1e-4, ls='--', c='k')
 ax[1,0].set_xlabel('iteration'); ax[1,0].set_ylabel(r'$\|\theta_k-\theta_{\rm SVD}\|_\infty$')
 ax[1,0].set_title('GD convergence')
 
-# (d) cost along the GD trajectory
-cost = [cost_ols(t, X, y) for t in hist_gd]
-ax[1,1].semilogy(cost); ax[1,1].set_xlabel('iteration')
-ax[1,1].set_ylabel(r'$C(\theta_k)$'); ax[1,1].set_title('cost')
+# (c) plot exploding step size:  GD diverges if η > η_max
+theta_gd_explode, hist_gd_explode = gd(grad_ols_analytic, theta0,
+                       n_iter=5000, eta=eta_explode, X=X, y=y)
+ax[0,1].plot(xx, Xx @ theta_gd_explode, 'r:', label='GD, diverging')
+ax[0,1].plot(xx, Xx @ theta_svd, 'k--', lw=2, label='SVD')
+ax[0,1].set_title(f'GD diverges for η={eta_explode:.2e} > η_max={eta_max_ols(X, 100):.2e}')     
+
+
+# (d) Plots of GD marching toward SVD solution
+iters = {
+  "Iteration: 5": 5,
+  "Iteration: 50": 50,
+  "Iteration: 500": 500,
+  "Iteration: 5000": 5000
+}
+for label, k in iters.items():
+    ax[1,1].plot(xx, Xx @ hist_gd[k], alpha=0.8,
+            label=fr'GD, {k} iters')
+ax[1,1].plot(xx, Xx @ theta_svd, 'k--', lw=2, label=f'SVD {label}')
 
 plt.tight_layout()
 plt.savefig("test_gd.png", dpi=140)
+plt.legend(loc='center', bbox_to_anchor=(0.5, 0.3), ncol=2)
 plt.show()
 # # =================================================================
 # # (4) OPTIMIZER RACE  (must all share the same return interface)
