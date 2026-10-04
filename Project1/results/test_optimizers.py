@@ -1,31 +1,28 @@
-import sys 
+import sys
 from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0,str(project_root))
 
 import numpy as np
 import matplotlib.pyplot as plt
-from src.fits import ols_fit, fit_ols_SVD, fit_ridge, predict
-from src.function_setups import runge, design_matrix, generate_data
 import jax
 import jax.numpy as jnp
-from polynomials.optimizers import eta_max_ols, cost_ols,cost_ridge, grad_ols_analytic, grad_ridge_analytic, gd, gd_momentum, adagrad, rmsprop, adam
-import importlib, polynomials.optimizers
-importlib.reload(polynomials.optimizers)
+jax.config.update("jax_enable_x64", True)
 
-# ================= First we test SVD-based OLS fit on a simple example =================
-x,y = generate_data(n=100, sigma=0.1, seed=2026)
-degree = 5 #Can also be changed to be for 8-15
+from src.function_setups import generate_data, runge, design_matrix
+from src.fits import fit_ols_SVD, fit_ridge, predict
+from polynomials.optimizers import (cost_ols, cost_ridge, cost_lasso,
+                        grad_ols_analytic, grad_ridge_analytic,
+                        gd, gd_momentum, adagrad, rmsprop, adam,
+                        eta_max_ols)
+
+# ---- data ----
+x, y = generate_data(n=100, sigma=0.1, seed=2026)
+degree = 5
 X = design_matrix(x, degree, intercept=True)
-xx = np.linspace(-1, 1, 400)
-Xx = design_matrix(xx, degree, intercept=True)
 
-# ------------- Compare two solutions -------------------
-theta0 = np.random.normal(size=X.shape[1])
-eta = 0.5* eta_max_ols(X, X.shape[0])
-
-theta_ols_svd = fit_ols_SVD(X, y, rcond=1e-12) # "analytical" (closed form)
-theta_gd,hist = gd(grad_ols_analytic, theta0, n_iter=5000, eta=1e-3, X=X, y=y) # iterative (gradient descent)
+rng = np.random.default_rng(0)
+theta0 = rng.normal(size=X.shape[1])
 
 # =================================================================
 # (1) GRADIENT CHECK:  analytic vs JAX AD, at the same theta
@@ -84,38 +81,37 @@ cost = [cost_ols(t, X, y) for t in hist_gd]
 ax[1,1].semilogy(cost); ax[1,1].set_xlabel('iteration')
 ax[1,1].set_ylabel(r'$C(\theta_k)$'); ax[1,1].set_title('cost')
 
-plt.tight_layout()
-plt.savefig("test_gd.png", dpi=140)
-plt.show()
-# # =================================================================
-# # (4) OPTIMIZER RACE  (must all share the same return interface)
-# # =================================================================
-# tol   = 1e-4
-# n_it  = 2000
-# opts = {
-#     "GD":       gd,
-#     "Momentum": gd_momentum,
-#     "AdaGrad":  adagrad,
-#     "RMSprop":  rmsprop,
-#     "Adam":     adam,
-# }
-# iters_to_tol = {}
-# for name, fn in opts.items():
-#     _, h = fn(grad_ols_analytic, theta0, n_iter=n_it, eta=eta, X=X, y=y)
-#     d = [np.max(np.abs(t - theta_svd)) for t in h]
-#     hit = next((i for i, v in enumerate(d) if v < tol), None)
-#     iters_to_tol[name] = hit
-#     print(f"{name:>9s}: {hit} iters to tol")
+plt.tight_layout(); plt.savefig("test_gd.png", dpi=140)
 
-# # =================================================================
-# # (5) LASSO vs SKLEARN  (sparsity claim)
-# # =================================================================
-# from sklearn.linear_model import Lasso
-# lam_l = 1e-3
-# theta_lasso_ours = adam(jax.grad(cost_lasso, argnums=0), theta0,
-#                         n_iter=5000, eta=1e-2, X=X, y=y, lam=lam_l)[0]
+# =================================================================
+# (4) OPTIMIZER RACE  (must all share the same return interface)
+# =================================================================
+tol   = 1e-4
+n_it  = 2000
+opts = {
+    "GD":       gd,
+    "Momentum": gd_momentum,
+    "AdaGrad":  adagrad,
+    "RMSprop":  rmsprop,
+    "Adam":     adam,
+}
+iters_to_tol = {}
+for name, fn in opts.items():
+    _, h = fn(grad_ols_analytic, theta0, n_iter=n_it, eta=eta, X=X, y=y)
+    d = [np.max(np.abs(t - theta_svd)) for t in h]
+    hit = next((i for i, v in enumerate(d) if v < tol), None)
+    iters_to_tol[name] = hit
+    print(f"{name:>9s}: {hit} iters to tol")
 
-# sk = Lasso(alpha=lam_l, fit_intercept=False, max_iter=10000).fit(X, y)
+# =================================================================
+# (5) LASSO vs SKLEARN  (sparsity claim)
+# =================================================================
+from sklearn.linear_model import Lasso
+lam_l = 1e-3
+theta_lasso_ours = adam(jax.grad(cost_lasso, argnums=0), theta0,
+                        n_iter=5000, eta=1e-2, X=X, y=y, lam=lam_l)[0]
 
-# print(f"ours   nonzero: {np.sum(np.abs(theta_lasso_ours) > 1e-6)}")
-# print(f"sklearn nonzero: {np.sum(np.abs(sk.coef_) > 1e-6)}")
+sk = Lasso(alpha=lam_l, fit_intercept=False, max_iter=10000).fit(X, y)
+
+print(f"ours   nonzero: {np.sum(np.abs(theta_lasso_ours) > 1e-6)}")
+print(f"sklearn nonzero: {np.sum(np.abs(sk.coef_) > 1e-6)}")

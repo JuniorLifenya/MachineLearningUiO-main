@@ -45,8 +45,8 @@ def grad_ridge_analytic(theta, X, y, lam):
     return grad_ols_analytic(theta, X, y) + 2.0 * lam * theta
 
 # ----------------- AD gradients ----------------------------
-grad_ols_ad = jax.grad(cost_ols, argnums=2)
-grad_ridge_ad = jax.grad(cost_ridge)
+grad_ols_ad = jax.grad(cost_ols, argnums=0)
+grad_ridge_ad = jax.grad(cost_ridge, argnums=0)
 
 # ----------------- Gradient descent ------------------------
 def gd(grad_fn, theta0, n_iter = 5000, eta = 1e-3, **kwargs):
@@ -60,12 +60,12 @@ def gd(grad_fn, theta0, n_iter = 5000, eta = 1e-3, **kwargs):
     for _ in range(n_iter):
         g = np.asarray(grad_fn(theta, **kwargs))
         theta = theta - eta*g
-        hist.append(theta.copy())
+        hist.append(theta.copy())   
 
     return theta, np.array(hist)
 
 def eta_max_ols(X, y):
-    H = (2.0 / len(y)) * (X.T @ X)
+    H = (2.0 / y * (X.T @ X))
     return 2.0 / np.linalg.eigvalsh(H).max()
 
 # ==================================================================
