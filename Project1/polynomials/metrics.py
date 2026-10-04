@@ -5,12 +5,12 @@ from sklearn.model_selection import train_test_split
 import sys 
 from pathlib import Path
 
-from Project1.Submit.Part_ab import ridge_fit
-from week35.Exercise3 import X_test
-project_root = Path(__file__).parent
+
+
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0,str(project_root))
-from function_setups import design_matrix, runge, generate_data
-from fits import fit_ols_SVD, fit_ridge, predict, standardize_polynomials
+from src.function_setups import design_matrix, runge, generate_data
+from src.fits import fit_ols_SVD, fit_ridge, predict, standardize_polynomials
 
 
 y_pred = predict(X_test, theta)
@@ -57,7 +57,7 @@ def experiment_ols_degree(x, y, degrees, test_size=0.3, seed=42,
                 X_train, X_test, intercept=intercept,
             )
 
-        theta = ols_fit(X_train, y_train)
+        theta = fit_ols_SVD(X_train, y_train)
         y_pred_train = predict(X_train, theta)
         y_pred_test = predict(X_test, theta)
 
@@ -98,7 +98,7 @@ def experiment_ridge(x, y, degrees, lambdas, test_size=0.3, seed=42,
             )
 
         for j, lam in enumerate(lambdas):
-            theta = ridge_fit(X_train, y_train, lam=lam)
+            theta = fit_ridge(X_train, y_train, lam=lam)
             y_pred_test = predict(X_test, theta)
             mse_test[i, j] = mse(y_test, y_pred_test)
             r2_test[i, j] = r2(y_test, y_pred_test)
@@ -169,7 +169,7 @@ def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
         body_xx_s = scaler.transform(body_xx)
         X_xx_s = np.hstack([X_xx[:, :1], body_xx_s])
 
-        theta = ols_fit(X_train_s, y_train)
+        theta = fit_ols_SVD(X_train_s, y_train)
         ax.plot(xx, X_xx_s @ theta, color=color, linewidth=1.5,
                 label=f"degree {d}")
     ax.set_xlabel("x")
@@ -270,12 +270,12 @@ def plot_part_b(x, y, ridge_res, ols_res, savepath=None):
     body_xx = X_xx[:, 1:]
     X_xx_s = np.hstack([X_xx[:, :1], scaler.transform(body_xx)])
 
-    theta_ols = ols_fit(X_train_s, y_train)
+    theta_ols = fit_ols_SVD(X_train_s, y_train)
     ax.plot(xx, X_xx_s @ theta_ols, color="#e74c3c", linewidth=1.4,
             label="OLS")
 
     for lam, color in zip([1e-4, 1e-2, 1.0], ["#2ecc71", "#f39c12", "#9b59b6"]):
-        theta_r = ridge_fit(X_train_s, y_train, lam=lam)
+        theta_r = fit_ridge(X_train_s, y_train, lam=lam)
         ax.plot(xx, X_xx_s @ theta_r, color=color, linewidth=1.4,
                 label=rf"Ridge $\lambda={lam}$")
 
