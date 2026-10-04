@@ -21,11 +21,12 @@ xx = np.linspace(-1, 1, 400)
 Xx = design_matrix(xx, degree, intercept=True)
 
 # ------------- Compare two solutions -------------------
-theta0 = np.random.normal(size=X.shape[1])
-eta = 0.5* eta_max_ols(X, X.shape[0])
+rng = np.random.default_rng(0)
+theta0 = rng.normal(size=X.shape[1])
+eta_safe = 0.5* eta_max_ols(X, X.shape[0])
 
 theta_ols_svd = fit_ols_SVD(X, y, rcond=1e-12) # "analytical" (closed form)
-theta_gd,hist = gd(grad_ols_analytic, theta0, n_iter=5000, eta=1e-3, X=X, y=y) # iterative (gradient descent)
+theta_gd,hist = gd(grad_ols_analytic, theta0, n_iter=5000, eta=eta_safe, X=X, y=y) # iterative (gradient descent)
 
 # =================================================================
 # (1) GRADIENT CHECK:  analytic vs JAX AD, at the same theta
