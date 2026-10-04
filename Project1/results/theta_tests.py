@@ -13,7 +13,10 @@ from polynomials.optimizers import eta_max_ols, cost_ols,cost_ridge, grad_ols_an
 import importlib, polynomials.optimizers
 importlib.reload(polynomials.optimizers)
 
-# ================= First we test SVD-based OLS fit on a simple example =================
+# =================================================================
+# (1) First we test SVD-based OLS fit on a simple example 
+# =================================================================
+
 x,y = generate_data(n=100, sigma=0.1, seed=2026)
 degree = 5 #Can also be changed to be for 8-15
 X = design_matrix(x, degree, intercept=True)
@@ -23,13 +26,16 @@ Xx = design_matrix(xx, degree, intercept=True)
 # ------------- Compare two solutions -------------------
 rng = np.random.default_rng(0)
 theta0 = rng.normal(size=X.shape[1])
-eta_safe = 0.5* eta_max_ols(X, X.shape[0])
 
-theta_ols_svd = fit_ols_SVD(X, y, rcond=1e-12) # "analytical" (closed form)
-theta_gd,hist = gd(grad_ols_analytic, theta0, n_iter=5000, eta=eta_safe, X=X, y=y) # iterative (gradient descent)
+eta = 0.5 * eta_max_ols(X, 100)
+eta_explode = 1.5 * eta_max_ols(X, 100)
+
+theta_gd, hist_gd = gd(grad_ols_analytic, theta0,
+                       n_iter=5000, eta=eta, X=X, y=y)
+theta_svd = fit_ols_SVD(X, y)
 
 # =================================================================
-# (1) GRADIENT CHECK:  analytic vs JAX AD, at the same theta
+# (2) GRADIENT CHECK:  analytic vs JAX AD, at the same theta
 # =================================================================
 g_an_ols   = grad_ols_analytic(theta0, X, y)
 g_ad_ols   = jax.grad(cost_ols, argnums=0)(theta0, X, y)
@@ -43,21 +49,12 @@ print(f"Ridge |∇_an − ∇_ad|_∞ = {np.max(np.abs(g_an_ridge - g_ad_ridge))
 # Both should print ~1e-15 to 1e-16 (machine precision).
 
 # =================================================================
-# (2) CLOSED-FORM CHECK:  GD must converge to fit_ols_SVD
+# CONVERGENCE / STABILITY PLOT
 # =================================================================
-eta = 0.5 * eta_max_ols(X, 100)
-eta_explode = 1.5 * eta_max_ols(X, 100)
+# trajectories for the stability panel
+_, hist_safe    = gd(grad_ols_analytic, theta0, n_iter=30, eta=eta,         X=X, y=y)
+_, hist_explode = gd(grad_ols_analytic, theta0, n_iter=30, eta=eta_explode, X=X, y=y)
 
-theta_gd, hist_gd = gd(grad_ols_analytic, theta0,
-                       n_iter=5000, eta=eta, X=X, y=y)
-theta_svd = fit_ols_SVD(X, y)
-
-print(f"GD vs SVD  |Δθ|_∞ = {np.max(np.abs(theta_gd - theta_svd)):.2e}")
-# Should be small (< 1e-3 at degree 5).
-
-# =================================================================
-# (3) CONVERGENCE / STABILITY PLOT
-# =================================================================
 fig, ax = plt.subplots(2, 2, figsize=(11, 7))
 
 # (a) fits — do GD and closed-form look the same?
@@ -72,15 +69,22 @@ ax[0,0].legend(); ax[0,0].set_title(f'degree={degree}')
 dist = [np.linalg.norm(t - theta_svd, ord=np.inf) for t in hist_gd]
 ax[1,0].semilogy(dist)
 ax[1,0].axhline(1e-4, ls='--', c='k')
-ax[1,0].set_xlabel('iteration'); ax[1,0].set_ylabel(r'$\|\theta_k-\theta_{\rm SVD}\|_\infty$')
+ax[1,0].set_xlabel('iteration')
+ax[1,0].set_ylabel(r'$\|\theta_k-\theta_{\rm SVD}\|_\infty$')
 ax[1,0].set_title('GD convergence')
 
 # (c) plot exploding step size:  GD diverges if η > η_max
-theta_gd_explode, hist_gd_explode = gd(grad_ols_analytic, theta0,
-                       n_iter=5000, eta=eta_explode, X=X, y=y)
-ax[0,1].plot(xx, Xx @ theta_gd_explode, 'r:', label='GD, diverging')
-ax[0,1].plot(xx, Xx @ theta_svd, 'k--', lw=2, label='SVD')
-ax[0,1].set_title(f'GD diverges for η={eta_explode:.2e} > η_max={eta_max_ols(X, 100):.2e}')     
+
+dist_safe    = [np.linalg.norm(t - theta_svd, ord=np.inf) for t in hist_safe]
+dist_explode = [np.linalg.norm(t - theta_svd, ord=np.inf) for t in hist_explode]
+
+ax[0,1].semilogy(dist_safe,    'b-',  label=r'$\eta = 0.5\,\eta_{\max}$')
+ax[0,1].semilogy(dist_explode, 'r--', label=r'$\eta = 1.5\,\eta_{\max}$')
+ax[0,1].axhline(1e-4, ls=':', c='k', label=r'$10^{-4}$ tol')
+ax[0,1].set_xlabel('iteration')
+ax[0,1].set_ylabel(r'$\|\theta_k - \theta_{\rm SVD}\|_\infty$')
+ax[0,1].legend()
+ax[0,1].set_title('Convergence vs divergence')
 
 
 # (d) Plots of GD marching toward SVD solution
@@ -99,35 +103,4 @@ plt.tight_layout()
 plt.savefig("test_gd.png", dpi=140)
 plt.legend(loc='center', bbox_to_anchor=(0.5, 0.3), ncol=2)
 plt.show()
-# # =================================================================
-# # (4) OPTIMIZER RACE  (must all share the same return interface)
-# # =================================================================
-# tol   = 1e-4
-# n_it  = 2000
-# opts = {
-#     "GD":       gd,
-#     "Momentum": gd_momentum,
-#     "AdaGrad":  adagrad,
-#     "RMSprop":  rmsprop,
-#     "Adam":     adam,
-# }
-# iters_to_tol = {}
-# for name, fn in opts.items():
-#     _, h = fn(grad_ols_analytic, theta0, n_iter=n_it, eta=eta, X=X, y=y)
-#     d = [np.max(np.abs(t - theta_svd)) for t in h]
-#     hit = next((i for i, v in enumerate(d) if v < tol), None)
-#     iters_to_tol[name] = hit
-#     print(f"{name:>9s}: {hit} iters to tol")
 
-# # =================================================================
-# # (5) LASSO vs SKLEARN  (sparsity claim)
-# # =================================================================
-# from sklearn.linear_model import Lasso
-# lam_l = 1e-3
-# theta_lasso_ours = adam(jax.grad(cost_lasso, argnums=0), theta0,
-#                         n_iter=5000, eta=1e-2, X=X, y=y, lam=lam_l)[0]
-
-# sk = Lasso(alpha=lam_l, fit_intercept=False, max_iter=10000).fit(X, y)
-
-# print(f"ours   nonzero: {np.sum(np.abs(theta_lasso_ours) > 1e-6)}")
-# print(f"sklearn nonzero: {np.sum(np.abs(sk.coef_) > 1e-6)}")
