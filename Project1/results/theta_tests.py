@@ -34,7 +34,7 @@ theta_gd, hist_gd = gd(grad_ols_analytic, theta0,
 theta_svd = fit_ols_SVD(X, y)
 
 # =================================================================
-# (2) GRADIENT CHECK:  analytic vs JAX AD, at the same theta
+# (2) GRADIENT DESCENT CHECK:  analytic vs JAX AD, at the same theta
 # =================================================================
 g_an_ols   = grad_ols_analytic(theta0, X, y)
 g_ad_ols   = jax.grad(cost_ols, argnums=0)(theta0, X, y)
