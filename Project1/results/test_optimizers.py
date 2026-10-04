@@ -1,5 +1,8 @@
+# --- BIAS-VARIANCE + CV: the two biggest remaining sections, one script ---
 import sys
 from pathlib import Path
+
+from sklearn.model_selection import KFold, train_test_split
 project_root = Path(__file__).parent.parent
 sys.path.insert(0,str(project_root))
 
@@ -16,102 +19,43 @@ from polynomials.optimizers import (cost_ols, cost_ridge, cost_lasso,
                         gd, gd_momentum, adagrad, rmsprop, adam,
                         eta_max_ols)
 
-# ---- data ----
 x, y = generate_data(n=100, sigma=0.1, seed=2026)
-degree = 5
-X = design_matrix(x, degree, intercept=True)
+x_tr, x_te, y_tr, y_te = train_test_split(x, y, test_size=0.3, random_state=0)
+degrees = np.arange(1, 16)
 
+# --- CV loop ---
+for k in [5, 10]:
+    cv_mse = []
+    for d in degrees:
+        kf = KFold(n_splits=k, shuffle=True, random_state=0)
+        scores = []
+        for tr, va in kf.split(x_tr):
+            Xtr = design_matrix(x_tr[tr], d)
+            Xva = design_matrix(x_tr[va], d)
+            th  = fit_ols_SVD(Xtr, y_tr[tr])
+            scores.append(np.mean((y_tr[va] - Xva @ th) ** 2))
+        cv_mse.append(np.mean(scores))
+    plt.semilogy(degrees, cv_mse, 'o-', label=f'k={k}')
+plt.xlabel('degree'); plt.ylabel('CV MSE'); plt.legend()
+
+# --- Bootstrap bias-variance ---
+B = 200
 rng = np.random.default_rng(0)
-theta0 = rng.normal(size=X.shape[1])
+bias_sq, var = [], []
+for d in degrees:
+    preds = np.zeros((B, len(x_te)))
+    for b in range(B):
+        idx = rng.integers(0, len(x_tr), len(x_tr))
+        Xb  = design_matrix(x_tr[idx], d)
+        th  = fit_ols_SVD(Xb, y_tr[idx])
+        preds[b] = design_matrix(x_te, d) @ th
+    mean_pred = preds.mean(axis=0)
+    bias_sq.append(np.mean((y_te - mean_pred) ** 2))
+    var.append(np.mean(preds.var(axis=0)))
 
-# =================================================================
-# (1) GRADIENT CHECK:  analytic vs JAX AD, at the same theta
-# =================================================================
-g_an_ols   = grad_ols_analytic(theta0, X, y)
-g_ad_ols   = jax.grad(cost_ols, argnums=0)(theta0, X, y)
-
-lam = 1e-2
-g_an_ridge = grad_ridge_analytic(theta0, X, y, lam)
-g_ad_ridge = jax.grad(cost_ridge, argnums=0)(theta0, X, y, lam)
-
-print(f"OLS   |∇_an − ∇_ad|_∞ = {np.max(np.abs(g_an_ols - g_ad_ols)):.2e}")
-print(f"Ridge |∇_an − ∇_ad|_∞ = {np.max(np.abs(g_an_ridge - g_ad_ridge)):.2e}")
-# Both should print ~1e-15 to 1e-16 (machine precision).
-
-# =================================================================
-# (2) CLOSED-FORM CHECK:  GD must converge to fit_ols_SVD
-# =================================================================
-eta = 0.5 * eta_max_ols(X, 100)
-theta_gd, hist_gd = gd(grad_ols_analytic, theta0,
-                       n_iter=5000, eta=eta, X=X, y=y)
-theta_svd = fit_ols_SVD(X, y)
-
-print(f"GD vs SVD  |Δθ|_∞ = {np.max(np.abs(theta_gd - theta_svd)):.2e}")
-# Should be small (< 1e-3 at degree 5).
-
-# =================================================================
-# (3) CONVERGENCE / STABILITY PLOT
-# =================================================================
-fig, ax = plt.subplots(2, 2, figsize=(11, 7))
-
-# (a) fits — do GD and closed-form look the same?
-xx  = np.linspace(-1, 1, 400)
-Xx  = design_matrix(xx, degree, intercept=True)
-ax[0,0].plot(xx, runge(xx), 'g-', label='Runge')
-ax[0,0].scatter(x, y, s=12, c='orange', label='data')
-ax[0,0].plot(xx, Xx @ theta_svd, 'b--', label='SVD')
-ax[0,0].plot(xx, Xx @ theta_gd,  'r:',  label='GD')
-ax[0,0].legend(); ax[0,0].set_title(f'degree={degree}')
-
-# (b) normal-equation residual for SVD fit  (should be ~1e-12)
-resid = X.T @ (X @ theta_svd - y)
-ax[0,1].bar(np.arange(degree+1), np.abs(resid))
-ax[0,1].set_yscale('log')
-ax[0,1].set_title(r'$|X^T(X\theta_{\rm SVD}-y)|$')
-
-# (c) convergence of GD toward SVD
-dist = [np.linalg.norm(t - theta_svd, ord=np.inf) for t in hist_gd]
-ax[1,0].semilogy(dist)
-ax[1,0].axhline(1e-4, ls='--', c='k')
-ax[1,0].set_xlabel('iteration'); ax[1,0].set_ylabel(r'$\|\theta_k-\theta_{\rm SVD}\|_\infty$')
-ax[1,0].set_title('GD convergence')
-
-# (d) cost along the GD trajectory
-cost = [cost_ols(t, X, y) for t in hist_gd]
-ax[1,1].semilogy(cost); ax[1,1].set_xlabel('iteration')
-ax[1,1].set_ylabel(r'$C(\theta_k)$'); ax[1,1].set_title('cost')
-
-plt.tight_layout(); plt.savefig("test_gd.png", dpi=140)
-
-# =================================================================
-# (4) OPTIMIZER RACE  (must all share the same return interface)
-# =================================================================
-tol   = 1e-4
-n_it  = 2000
-opts = {
-    "GD":       gd,
-    "Momentum": gd_momentum,
-    "AdaGrad":  adagrad,
-    "RMSprop":  rmsprop,
-    "Adam":     adam,
-}
-iters_to_tol = {}
-for name, fn in opts.items():
-    _, h = fn(grad_ols_analytic, theta0, n_iter=n_it, eta=eta, X=X, y=y)
-    d = [np.max(np.abs(t - theta_svd)) for t in h]
-    hit = next((i for i, v in enumerate(d) if v < tol), None)
-    iters_to_tol[name] = hit
-    print(f"{name:>9s}: {hit} iters to tol")
-
-# =================================================================
-# (5) LASSO vs SKLEARN  (sparsity claim)
-# =================================================================
-from sklearn.linear_model import Lasso
-lam_l = 1e-3
-theta_lasso_ours = adam(jax.grad(cost_lasso, argnums=0), theta0,
-                        n_iter=5000, eta=1e-2, X=X, y=y, lam=lam_l)[0]
-
-sk = Lasso(alpha=lam_l, fit_intercept=False, max_iter=10000).fit(X, y)
-
-print(f"ours   nonzero: {np.sum(np.abs(theta_lasso_ours) > 1e-6)}")
-print(f"sklearn nonzero: {np.sum(np.abs(sk.coef_) > 1e-6)}")
+plt.figure()
+plt.semilogy(degrees, bias_sq, 'o-', label=r'Bias$^2$')
+plt.semilogy(degrees, var,     's-', label='Variance')
+plt.semilogy(degrees, np.array(bias_sq) + np.array(var), '^-', label='Sum')
+plt.xlabel('degree'); plt.ylabel('MSE'); plt.legend()
+plt.show()
