@@ -6,9 +6,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import KFold
 
-from fits import fit_ols_SVD, fit_ridge
-from function_setups import generate_data, runge, design_matrix
-from fits import fit_ols_SVD,fit_ridge
+from src.fits import fit_ols_SVD, fit_ridge
+from src.function_setups import generate_data, runge, design_matrix
+from src.fits import fit_ols_SVD,fit_ridge
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -67,22 +67,6 @@ def gd(grad_fn, theta0, n_iter = 5000, eta = 1e-3, **kwargs):
 def eta_max_ols(X, y):
     H = (2.0 / len(y)) * (X.T @ X)
     return 2.0 / np.linalg.eigvalsh(H).max()
-
-# ---------------- Fast verification -------------------------
-
-x,y = generate_data()
-degree = 5
-X = design_matrix(x,degree, intercept=True)
-
-rng = np.random.default_rng(0)
-theta0 = rng.normal(size = X.shape[1])
-
-eta = 0.5 * eta_max_ols(X, y)   # safe: half the theoretical bound
-theta_gd, _ = gd(grad_ols_analytic, theta0, n_iter=5000, eta=eta, X=X, y=y)
-theta_closed = fit_ols_SVD(X, y)
-
-print(np.max(np.abs(grad_ols_ad(theta,X,y0) - grad_ols_analytic(theta0,X,y))))
-print(np.max(np.abs(theta_gd - theta_closed)))   # should be small
 
 # ==================================================================
 #           Part f)-ADAGRAD, MOMENTUM, RMSprop, ADAM
@@ -144,9 +128,9 @@ def cost_lasso(theta,X,y,lam):
 
 grad_lasso_ad = jax.grad(cost_lasso)
 
-# Use any optimizer from part f), like Adam:
-theta_lasso = adam(grad_lasso_ad, theta0, n_iter = 5000,
-                   eta = 1e-2, X=X, y=y, lam=1e-3)
+# # Use any optimizer from part f), like Adam:
+# theta_lasso = adam(grad_lasso_ad, theta0, n_iter = 5000,
+#                    eta = 1e-2, X=X, y=y, lam=1e-3)
 
 # jax returns 0 at θ=0, which is *a* valid subgradient but not the sparsity-inducing one. 
 # Contrast with scikit-learn's Lasso, 

@@ -25,6 +25,7 @@ def ols_fit(X, y, rcond=1e-12):
     s_inv = np.where(s > rcond * s[0], 1.0 / s, 0.0)
     return Vt.T @ (s_inv * (U.T @ y))
 
+
 def fit_ols_SVD(X,y,rcond = 1e-15):
     """
     OLS via SVD: theta = V diag(1/s_i) U^T y.
@@ -33,7 +34,8 @@ def fit_ols_SVD(X,y,rcond = 1e-15):
 
     U, s, Vt = np.linalg.svd(X, full_matrices=False)
     s_inv = np.where(s > rcond * s[0], 1.0 / s, 0.0)
-    return Vt.T @ (s_inv * (U.T @ y))
+    theta_ols_svd = Vt.T @ (s_inv * (U.T @ y))
+    return theta_ols_svd
 
 def fit_ridge(X,y,lam):
     """
