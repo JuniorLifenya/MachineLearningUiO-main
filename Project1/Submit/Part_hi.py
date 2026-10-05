@@ -8,11 +8,8 @@ from sklearn.model_selection import KFold
 # Ensure JAX uses double precision
 jax.config.update("jax_enable_x64", True)
 
-# --- ASSUMED EXTERNAL IMPORTS ---
 from Part_ab import generate_data, design_matrix
-from function_setup import fit_ols_SVD,fit_ridge
-# If plot_part_i is defined elsewhere, import it. Otherwise, comment it out.
-# from somewhere import plot_part_i 
+from function_setup import fit_ols_SVD, fit_ridge
 
 # ==================================================================
 #                  Part h) Stochastic Grad Descent
@@ -41,7 +38,6 @@ def sgd_with_history(grad_fn, X, y, theta0, n_epochs, batch_size, eta, optimizer
     b_size = n if batch_size == 'n' or batch_size >= n else batch_size
 
     for epoch in range(n_epochs):
-        # Record the cost at the beginning of each epoch
         cost_history.append(cost_fn(theta, X, y))
         
         idx = rng.permutation(n)
@@ -68,20 +64,22 @@ def sgd_with_history(grad_fn, X, y, theta0, n_epochs, batch_size, eta, optimizer
 #                  Part i) Final Model Selection (CV)
 # ==================================================================    
 
+# JIT compile the cost and gradient ONCE outside the loop for massive speedup
+def lasso_cost(theta, X, y, lam):
+    return jnp.mean((y - jnp.dot(X, theta)) ** 2) + lam * jnp.sum(jnp.abs(theta))
+
+lasso_grad = jax.jit(jax.grad(lasso_cost, argnums=0))
+
 def fit_lasso_gd(X, y, lam, n_iter=2000, eta=1e-2):
     """
     Lasso via gradient descent on the AD gradient.
     Subgradient method — theta does NOT become exactly zero.
     """
-    def cost(theta, X, y, lam):
-        return jnp.mean((y - jnp.dot(X, theta)) ** 2) + lam * jnp.sum(jnp.abs(theta))
-
-    grad = jax.grad(cost)
-    theta = np.zeros(X.shape[1])
+    theta = jnp.zeros(X.shape[1]) # Keep as jnp array during updates
     for _ in range(n_iter):
-        g = np.asarray(grad(theta, X, y, lam))
+        g = lasso_grad(theta, X, y, lam)
         theta = theta - eta * g
-    return theta
+    return np.asarray(theta) # Convert back to standard numpy at the very end
 
 def cv_score_degree(x, y, degree, k=5, lam=0.0, method="ols", seed=42):
     """Evaluates a specific degree and lambda using K-Fold CV."""
@@ -154,12 +152,7 @@ def best_config(grid, degrees, lambdas):
 #                  Main Execution Block
 # ==================================================================
 
-X, y = generate_data(n=100, sigma=0.1, seed=2026)
-theta0 = np.zeros(design_matrix(X, degree=3).shape[1])  # Initial theta for SGD
-
 if __name__ == "__main__":
-    # 1. Generate data first so 'x' and 'y' exist for both parts
-    # Assuming generate_data returns (x, y) 1D arrays
     x, y = generate_data(n=100, sigma=0.1, seed=2026)
     
     # -----------------------------------------------------------
@@ -176,15 +169,11 @@ if __name__ == "__main__":
     print(f"Best degree: {d_best}")
     print(f"Best lambda: {lam_best}")
     print(f"CV MSE:      {mse_best:.4e}")
-
-
-    # plot_part_i(grid, degrees, lambdas)   
     
     # -----------------------------------------------------------
     # Run SGD Plotting (Part h)
     # -----------------------------------------------------------
     print("\n--- Running SGD Optimization Plot ---")
-    # Generate a design matrix for the SGD test (using best degree or a fixed one like 3)
     test_degree = 3 
     X_poly = design_matrix(x, test_degree)
     theta0 = np.zeros(X_poly.shape[1])
@@ -199,7 +188,7 @@ if __name__ == "__main__":
     for bs in batch_sizes:
         label_str = f"Batch size B = {bs}" if bs != n else f"Batch size B = n ({n})"
         _, history = sgd_with_history(
-            mse_grad, X_poly, y, theta0, # Passed mse_grad instead of undefined grad_fn
+            mse_grad, X_poly, y, theta0, 
             n_epochs=n_epochs, 
             batch_size=bs, 
             eta=eta, 
