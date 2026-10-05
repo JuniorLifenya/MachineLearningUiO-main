@@ -244,7 +244,7 @@ def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
       [2] Fitted curves at three representative degrees
       [3] Coefficient magnitudes vs degree (scaled features)
     """
-    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+    fig, axes = plt.subplots(2, 2, figsize=(13, 9), layout="constrained")
 
     # --- Panel 0: MSE vs degree ---
     ax = axes[0, 0]
@@ -287,7 +287,6 @@ def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
             X_all, y, test_size=0.3, random_state=42,
         )
         X_train_s, X_test_s, scaler = standardize_polynomials(X_train, X_test)
-        # For prediction on xx, apply the same scaling
         body_xx = X_xx[:, 1:]
         body_xx_s = scaler.transform(body_xx)
         X_xx_s = np.hstack([X_xx[:, :1], body_xx_s])
@@ -309,16 +308,14 @@ def plot_part_a(x, y, res_scaled, res_unscaled=None, savepath=None):
     for j in range(thetas.shape[1]):
         ax.plot(res_scaled["degrees"], thetas[:, j], marker="o", markersize=3,
                 linewidth=1, alpha=0.7, label=f"$\\theta_{{{j}}}$")
-    ax.set_yscale("symlog", linthresh=1e-2)   # signed, handles zeros
+    ax.set_yscale("symlog", linthresh=1e-2)
     ax.set_xlabel("Polynomial degree")
     ax.set_ylabel(r"$\theta_j$")
     ax.set_title("Coefficients vs degree")
     ax.legend(fontsize=7, ncol=2, frameon=False)
     ax.grid(True, alpha=0.3)
 
-    plt.suptitle("Part a) — OLS on Runge's function",
-                 fontsize=13, fontweight="bold")
-    plt.tight_layout()
+    plt.suptitle("Part a) — OLS on Runge's function", fontsize=13, fontweight="bold")
     if savepath:
         plt.savefig(savepath, dpi=140, bbox_inches="tight")
     plt.show()
@@ -332,7 +329,7 @@ def plot_part_b(x, y, ridge_res, ols_res, savepath=None):
       [2] Coefficient shrinkage vs λ at fixed degree
       [3] Ridge fit vs OLS at the degree where OLS diverges
     """
-    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+    fig, axes = plt.subplots(2, 2, figsize=(13, 9), layout="constrained")
 
     degrees = ridge_res["degrees"]
     lambdas = ridge_res["lambdas"]
@@ -349,7 +346,7 @@ def plot_part_b(x, y, ridge_res, ols_res, savepath=None):
     ax.set_xlabel(r"$\log_{10}\lambda$")
     ax.set_ylabel("Polynomial degree")
     ax.set_title("Test MSE (log₁₀) over (degree, λ)")
-    plt.colorbar(im, ax=ax, label=r"$\log_{10}$ MSE")
+    fig.colorbar(im, ax=ax, label=r"$\log_{10}$ MSE")
 
     # --- Panel 1: MSE vs λ at three degrees ---
     ax = axes[0, 1]
@@ -364,7 +361,6 @@ def plot_part_b(x, y, ridge_res, ols_res, savepath=None):
     ax.grid(True, alpha=0.3, which="both")
 
     # --- Panel 2: Coefficient shrinkage vs λ ---
-    # Pick the highest degree and show each coefficient's magnitude
     ax = axes[1, 0]
     d = degrees[-1]
     i = np.where(degrees == d)[0][0]
@@ -410,13 +406,10 @@ def plot_part_b(x, y, ridge_res, ols_res, savepath=None):
     ax.legend(frameon=False, fontsize=9)
     ax.grid(True, alpha=0.3)
 
-    plt.suptitle("Part b) — Ridge on Runge's function",
-                 fontsize=13, fontweight="bold")
-    plt.tight_layout()
+    plt.suptitle("Part b) — Ridge on Runge's function", fontsize=13, fontweight="bold")
     if savepath:
         plt.savefig(savepath, dpi=140, bbox_inches="tight")
     plt.show()
-
 
 # ============================================================
 # 8. DRIVERS
