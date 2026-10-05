@@ -121,3 +121,63 @@ def cv_score_degree(x,y,degree,k=5, lam = 0.0, seed = 42):
         fold_mses.append(np.mean((y_va-y_pred)**2))
 
     return float (np.mean(fold_mses))
+
+# ==================================================================
+#           Plotting Part d) Cross-Validation MSE
+# ==================================================================
+
+# Calculate CV MSE for degrees 1 through 5
+degrees = range(1, 6)
+cv_mses = [cv_score_degree(x, y, degree=d, k=5, lam=0.0) for d in degrees]
+
+# Extract the Bootstrap Total MSE from Part c results for comparison
+bootstrap_total_mse = [r["mse"] for r in results]
+
+plt.figure(figsize=(8, 5))
+
+# Plot CV MSE
+plt.plot(degrees, cv_mses, "D--", color="tab:red", label="5-Fold CV MSE", markersize=6)
+
+# Overlay Bootstrap Total MSE
+plt.plot(degrees, bootstrap_total_mse, "^-", color="tab:green", label="Bootstrap Total MSE")
+
+plt.yscale("log")
+plt.xlabel("Polynomial Degree")
+plt.ylabel("Mean Squared Error (MSE)")
+plt.title("Cross-Validation vs. Bootstrap MSE")
+plt.xticks(degrees)
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# 1. Run bootstrap for degrees 1 through 15
+degrees = list(range(1, 16))
+results = [bootstrap_bias_variance(x, y, degree=d) for d in degrees]
+
+# 2. Extract arrays
+bias_sq = np.array([r["bias_sq"] for r in results])
+variance = np.array([r["variance"] for r in results])
+total_mse = np.array([r["mse"] for r in results])
+
+# 3. Compute the specific statistics needed for report
+opt_deg_idx = np.argmin(total_mse)
+optimal_degree = degrees[opt_deg_idx]
+
+# Variance growth from degree 1 to degree 15
+var_deg_1 = variance[0]
+var_deg_15 = variance[-1]
+var_growth_factor = var_deg_15 / var_deg_1
+
+# Print the results to fill into LaTeX
+print("=== NUMBERS FOR LATEX SECTION ===")
+print(f"Optimal Degree (Min Total MSE) : {optimal_degree}")
+print(f"Variance at Degree 1          : {var_deg_1:.4e}")
+print(f"Variance at Degree 15         : {var_deg_15:.4e}")
+print(f"Variance Growth Factor         : {var_growth_factor:.2f}x")
+print(f"Min Bias^2 (at high degree)    : {bias_sq[-1]:.4e}")
+
+cv_5 = [cv_score_degree(x, y, degree=d, k=5) for d in range(1, 16)]
+cv_10 = [cv_score_degree(x, y, degree=d, k=10) for d in range(1, 16)]
+
+print(f"k=5  Optimal Degree: {np.argmin(cv_5) + 1}")
+print(f"k=10 Optimal Degree: {np.argmin(cv_10) + 1}")

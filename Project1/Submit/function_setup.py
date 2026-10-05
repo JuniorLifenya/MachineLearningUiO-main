@@ -48,7 +48,7 @@ y = runge(x) + rng.normal(0, sigma,n)
 
 xx = np.linspace (-1,1, 400)
 plt.plot(xx, runge(xx), color = "green", label= "Runge function fitting test")
-plt.scatter(x,y, s = 12, color = "orange",label =" data, $\sigma = {sigma}$")
+plt.scatter(x,y, s = 12, color = "orange",label = r" data, $\sigma = {sigma}$")
 plt.xlabel("x"); plt.ylabel("y");plt.legend(frameon = True)
 plt.show()
 
@@ -62,7 +62,6 @@ def fit_ols_SVD(X,y,rcond = 1e-15):
     OLS via SVD: theta = V diag(1/s_i) U^T y.
     Singular values below rcond * s_max are zeroed.
     """
-
     U, s, Vt = np.linalg.svd(X, full_matrices=False)
     s_inv = np.where(s > rcond * s[0], 1.0 / s, 0.0)
     return Vt.T @ (s_inv * (U.T @ y))
@@ -72,8 +71,26 @@ def fit_ridge(X,y,lam):
     Ridge via SVD: theta = V diag(s_i / (s_i^2 + lam)) U^T y.
     This is the shrinkage view.
     """
-
     U, s, Vt = np.linalg.svd(X, full_matrices=False)
     shrink = s / (s ** 2 + lam)
     return Vt.T @ (shrink * (U.T @ y))
 
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(2026)
+    n = 100
+    sigma = 0.1
+    x = np.sort(rng.uniform(-1,1,n))
+    y = runge(x) + rng.normal(0, sigma,n)
+
+    xx = np.linspace (-1,1, 400)
+    plt.plot(xx, runge(xx), color = "green", label= "Runge function fitting test")
+    # Fixed string formatting with 'r'
+    plt.scatter(x,y, s = 12, color = "orange",label = r" data, $\sigma = {sigma}$")
+    plt.xlabel("x"); plt.ylabel("y");plt.legend(frameon = True)
+    plt.show()
+
+    X = design_matrix(x, degree=18, intercept=True)
+    cond_xtx = np.linalg.cond(X.T @ X)
+    exponent = np.log10(cond_xtx)
+    print(f"Condition number order of magnitude: 10^{exponent:.1f}")

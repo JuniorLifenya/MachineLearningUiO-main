@@ -439,11 +439,6 @@ def demo_part_a():
               f"{res_scaled['r2_test'][i]:>10.4f} "
               f"{res_unscaled['mse_test'][i]:>20.4e}")
 
-    print("\nInterpretation prompts for your report:")
-    print("  - At which degree does MSE_test start rising?")
-    print("  - Does R2_test go negative? At what degree?")
-    print("  - Compare the scaled and unscaled test MSEs. Which is better?")
-    print("  - Look at |theta_j| growth in the last panel: is it monotone?")
 
     plot_part_a(x, y, res_scaled, res_unscaled=res_unscaled)
 
@@ -490,13 +485,6 @@ def demo_part_b():
             row.append(f"{ridge_res['mse_test'][i, j]:>10.3e}")
         print(f"{d:>3} " + " ".join(row))
 
-    print("\nInterpretation prompts for your report:")
-    print("  - For fixed degree, how does test MSE vary with lambda?")
-    print("    Is there an optimal lambda per degree?")
-    print("  - At high degree, how much does Ridge rescue OLS?")
-    print("  - Coefficient panel: which coefficients shrink first as lambda grows?")
-    print("  - SVD view: small singular values of X correspond to directions")
-    print("    where Ridge shrinks most aggressively. Can you verify numerically?")
 
     plot_part_b(x, y, ridge_res, ols_res)
 
@@ -528,9 +516,3 @@ def verify_svd_shrinkage():
     err = np.max(np.abs(theta_closed - theta_svd))
     print(f"Ridge SVD check: max|theta_closed - theta_svd| = {err:.2e}")
 
-
-if __name__ == "__main__":
-    demo_part_a()
-    demo_part_b()
-    print("\n--- SVD shrinkage verification ---")
-    verify_svd_shrinkage()
