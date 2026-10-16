@@ -76,5 +76,22 @@ x = np.random.randn(input_size)
 layers = many_layers(input_size,layer_output_sizes)
 predict = feed_forward_all_relu(layers,x)
 print(predict)
+
 # ================================ Exercise 4 =================================================================
 
+def feed_forward(input, layers, activation_funcs):
+    a = input
+    for (W,b), activation_func in zip(layers,activation_funcs):
+        z = W @ a + b 
+        a = ReLU(z)
+    return a 
+
+network_input_size = ...
+layer_output_sizes = [...]
+activation_funcs = [ReLU, ReLU, sigmoid]
+layers = ...
+
+x = np.random.randn(network_input_size)
+feed_forward(x, layers, activation_funcs)
+
+# ================================ Exercise 5 =================================================================
