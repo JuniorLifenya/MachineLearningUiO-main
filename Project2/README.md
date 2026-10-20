@@ -1,0 +1,1 @@
+The central objective of this project is to establish our own neural network. In doing so, we will study both classification and regression problems by developing our own feed-forward neural network code. 
