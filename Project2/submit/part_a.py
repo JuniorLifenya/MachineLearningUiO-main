@@ -25,3 +25,4 @@ def mse_L2(y_true, y_pred):
 # ================== 2 Binary cross entropy (log loss) ============
 
 def cross_entropy()
+    
