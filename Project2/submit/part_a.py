@@ -33,7 +33,22 @@ def mse_l1(y_true,y_pred,parameters,lam):
 def mse_l2(y_true,y_pred,parameters,lam):
     return mse(y_true,y_pred) + lam * l2_penalty(parameters)
 
+# Here the parameters will be a list (parameters = [W1,b1,W2,b2])
+#  of Neural network trainable arrays
+
 # ================== 2 Binary cross entropy (log loss) ============
 
-def cross_entropy()
-    
+def BC_entropy(N0,N1):
+    return (N0**2 +N1**2)/2
+
+def BC_l1(N0,N1,parameters,lam):
+    return BC_entropy(N0,N1) + lam * l1_penalty(parameters)
+
+def BC_l2(N0,N1,parameters,lam):
+    return BC_entropy(N0,N1) + lam * l2_penalty(parameters)
+
+# However the literature says that we actually do this because 
+# We want to use the NN itself as the solution and add conditions
+# to the cost as penalties...L = L_PDE + lam(L_IC + L_BC)
+# So here I am unsure, but moving forward first then go back
+# Change and then understand the math and code simultaneously
