@@ -27,36 +27,39 @@ def C_mse(y_true, y_pred): # The main mse Cost function
     
     return np.mean((y_true - y_pred) ** 2)
 
-def l1_penalty(parameters):
-    return sum(np.sum(np.abs(p)) for p in parameters)
+def l1_penalty(params):
+    return sum(np.sum(np.abs(p)) for p in params)
 
-def l2_penalty(parameters):
-    return sum(np.sum(np.asarray(p)**2 for p in parameters))
+def l2_penalty(params):
+    return sum(float(np.sum(np.asarray(p)**2)) for p in params)
 
-def mse_l1(y_true,y_pred,parameters,lam):
-    return C_mse(y_true,y_pred) + lam * l1_penalty(parameters)
+def mse_l1(y_true,y_pred,params,lam):
+    return C_mse(y_true,y_pred) + lam * l1_penalty(params)
 
-def mse_l2(y_true,y_pred,parameters,lam):
-    return C_mse(y_true,y_pred) + lam * l2_penalty(parameters)
+def mse_l2(y_true,y_pred,params,lam):
+    return C_mse(y_true,y_pred) + lam * l2_penalty(params)
 
-# Here the parameters will be a list (parameters = [W1,b1,W2,b2])
+# Here the params will be a list (params = [W1,b1,W2,b2])
 #  of Neural network trainable arrays
-# The penalties are not on the theta parameters anymore,
+# The penalties are not on the theta params anymore,
 # but the weight matrices W(l) for Neural Networks
 
 # -------------- 1.5 MSE function derivatives -----------------
 
-def C_mse_der(y_true,y_pred):
+def dC_dypred(y_true,y_pred):
     """
         dC/dy_pred for C = (1/n) sum (y_pred - y_true)^2.
     """
     return (2.0/y_true.size) * (y_pred-y_true)
 
-def C_mse_der_l1(y_true,y_pred, parameters, lam):
-    return C_mse_der + lam*l1_penalty(parameters)
+def L1_penalty_grad(params, lam):
+    """Gradient of the L1 penalty with respect to each array in params.
+    Returns a list of arrays, one per parameter, each with the same shape."""
+    return [lam * np.sign(np.asarray(p)) for p in params]
 
-def C_mse_der_l2(y_true,y_pred, parameters, lam):
-    return C_mse_der + lam*l2_penalty(parameters)
+def L2_penalty_grad(params, lam):
+    return [2.0 * lam * np.asarray(p) for p in params]
+
 
 
 # ========================================================================
@@ -65,15 +68,18 @@ def C_mse_der_l2(y_true,y_pred, parameters, lam):
 
 def BC_entropy(y_true,y_pred,eps = 1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0-eps)
-    return -jnp.mean(y_true*jnp.log(y_pred)) + (1.0-y_true)*jnp.log(1.0-y_pred)
+    return -jnp.mean(
+        y_true*jnp.log(y_pred) 
+        + (1.0-y_true)*jnp.log(1.0-y_pred)
+        )
 
-def BC_l1(y_true, y_pred, eps=1e-12,parameters,lam):
-    return BC_entropy + lam * l1_penalty(parameters)
+def BC_l1(y_true, y_pred, params, lam, eps=1e-12):
+    return BC_entropy(y_true, y_pred, eps) + lam * l1_penalty(params)
 
-def BC_l2(y_true, y_pred, eps=1e-12,parameters,lam):
-    return BC_entropy + lam * l2_penalty(parameters)
+def BC_l2(y_true, y_pred,params,lam, eps=1e-12):
+    return BC_entropy(y_true,y_pred,eps) + lam * l2_penalty(params)
 
-def BC_der(y_true, y_pred, eps=1e-12):
+def dBC_dypred(y_true, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_true) / (y_pred * (1.0 - y_pred) * y_true.size)
 
