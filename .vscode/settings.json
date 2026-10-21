@@ -1,9 +1,15 @@
 {
     "cSpell.words": [
+        "backprop",
         "Fastly",
+        "frameon",
+        "keepdims",
+        "linalg",
         "Marix",
+        "Multiclass",
         "newaxis",
         "psudo",
+        "rcond",
         "runge",
         "Scikit",
         "xlabel",

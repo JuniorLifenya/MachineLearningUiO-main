@@ -1,5 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt 
+import jax
+jax.config.update("jax_enable_x64", True)
+import jax.numpy as jnp
+from sklearn import datasets
+import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
 
 # The exercise own starting point
 # Runge's function is defined on [-1,1] with 
@@ -15,43 +21,28 @@ def runge(x):
     """
     return 1.0 / (1.0 + 25.0 * x ** 2)
 
+# ============================================================
+# Testable Activation functions four our NN setup later
+# ============================================================
 
-def design_matrix(x, degree, intercept=True):
-    """
-    Polynomial design matrix.
+def sigmoid(z):
+    return 1 / (1 + jnp.exp(-z))
 
-    Columns are [1, x, x², ..., x^degree] if intercept=True,
-    or [x, x², ..., x^degree] if intercept=False.
+def sigmoid_der(z):
+    s = sigmoid(z)
+    return s* (1.0-s)
 
-    """
-    x = np.asarray(x).ravel()
-    start = 0 if intercept else 1
-    return np.vstack([x ** p for p in range(start, degree + 1)]).T
+def ReLU(z):
+    return jnp.where(z > 0, z, 0.0)
 
+def ReLU_der(z):
+    return jnp.where(z > 0, 1.0, 0.0)
 
-def generate_data(n=100, sigma=0.1, seed=2026, x_min=-1.0, x_max=1.0):
-    """
-    Sample Runge's function with additive Gaussian noise.
+def leaky_ReLU(z, alpha=0.01):
+    return jnp.where(z > 0, z, alpha * z)
 
-    """
-    rng = np.random.default_rng(seed)
-    x = np.sort(rng.uniform(x_min, x_max, n))
-    y = runge(x) + rng.normal(0.0, sigma, n)
-    return x, y
-
-
-rng = np.random.default_rng(2026)
-n = 100
-sigma = 0.1
-x = np.sort(rng.uniform(-1,1,n))
-y = runge(x) + rng.normal(0, sigma,n)
-
-xx = np.linspace (-1,1, 400)
-plt.plot(xx, runge(xx), color = "green", label= "Runge function fitting test")
-plt.scatter(x,y, s = 12, color = "orange",label = r" data, $\sigma = {sigma}$")
-plt.xlabel("x"); plt.ylabel("y");plt.legend(frameon = True)
-plt.show()
-
+def leaky_ReLU_der(z, alpha=0.01):
+    return jnp.where(z > 0, 1.0, alpha)
 
 # ============================================================
 # Fitting Codes 
@@ -75,6 +66,7 @@ def fit_ridge(X,y,lam):
     shrink = s / (s ** 2 + lam)
     return Vt.T @ (shrink * (U.T @ y))
 
+# =========================================================================================
 
 if __name__ == "__main__":
     rng = np.random.default_rng(2026)
