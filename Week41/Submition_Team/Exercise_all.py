@@ -63,7 +63,7 @@ def feed_forward_all_relu(layers, input):
         z = W @ a + b
         a = ReLU(z)
     return a
-
+# Discuss the change of operational order
 
 input_size = 8
 layer_output_sizes = [10, 16, 6, 2]
