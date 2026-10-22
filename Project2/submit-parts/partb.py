@@ -11,13 +11,24 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
 from function_setup2 import runge, sigmoid, sigmoid_der, ReLU,leaky_ReLU 
-from data_aquisition import design_matrix
+from data_aquisition import design_matrix, raw_x
 
 # ====================================================================
 # Main function, weight initialization and data scaling
 # ====================================================================
 
-x = np.random.randn(4)
+X = raw_x(1) # Give (-x,x)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+# Standardize input (fit on training only)
+scaler_x = StandardScaler().fit(X_train)
+X_train = scaler_x.transform(X_train)
+X_test = scaler_x.transform(X_test)
+
+# Reshape y for the batched backprop (one output per sample)
+y_train = y_train.reshape(-1, 1)
+y_test = y_test.reshape(-1, 1)
 
 # ---------------- Wight initialization ? ------------------------------
 
@@ -46,12 +57,14 @@ def create_layers(network_input_size, layer_output_sizes,seed = None):
     for layer_output_size in layer_output_sizes:
         W = rng.normal(
             loc = 0.0,
-            scale = np.sqrt(1.0/i_size), # Xavier for sigmoid
+            scale = np.sqrt(1.0/i_size), # Xavier for sigmoid, 
+            # Compare to week 41 np.random.randn(i_size,layer_output_size)
+            # Which used std = 1. Difference between trainable NN or not !
             size = (i_size, layer_output_size),
         )
         b = np.zeros(layer_output_sizes)
         layers.append(W,b)
-        i_sizes = layer_output_size
+        i_size = layer_output_size # Batched convention in project description
         return layers 
 
 
