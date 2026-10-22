@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "aquisition",
         "backprop",
         "dypred",
         "Fastly",
@@ -9,7 +10,9 @@
         "Marix",
         "Multiclass",
         "newaxis",
+        "polyn",
         "psudo",
+        "randn",
         "rcond",
         "runge",
         "Scikit",
