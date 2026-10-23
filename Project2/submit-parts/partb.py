@@ -65,9 +65,9 @@ def create_layers(network_input_size, layer_output_sizes,seed = None):
 
 # ---------------- design matrix ----------------------------------------
 
+# NN input: raw x, reshaped to a column. No polynomial features.
+# The network learns its own features in the hidden layers.
 def raw_x(x):
-    """NN input: raw x, reshaped to a column. No polynomial features.
-    The network learns its own features in the hidden layers."""
     return np.asarray(x).reshape(-1, 1)
 
 # Quick Plot to confirm the data 
@@ -85,21 +85,8 @@ if __name__ == "__main__":
     plt.xlabel("x");plt.ylabel("y")
     plt.legend();plt.show()
 
-    X = design_matrix(xx, degree = 18, intercept = True)
+    X = design_matrix(x, degree = 18, intercept = True)
     print(f"Condition number of X^TX: 10^{np.log10(np.linalg.cond(X.T @ X)):.1f}")
-
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, random_state=42
-)
-# Standardize input (fit on training only)
-scaler_x = StandardScaler().fit(X_train)
-X_train = scaler_x.transform(X_train)
-X_test = scaler_x.transform(X_test)
-
-# Reshape y for the batched backprop (one output per sample)
-y_train = y_train.reshape(-1, 1)
-y_test = y_test.reshape(-1, 1)
 
 
 # Since OLS/Ridge were linear in the features they needed polyn approx
@@ -109,11 +96,15 @@ y_test = y_test.reshape(-1, 1)
 # Recall this as the universal approximation theorem
 # NN learns its own features in the hidden layers.
 
-# --- Which activation func for start and final output layer -------------
+# ---------- Which activation func for start and final output layer -------------
 
-main_activation = sigmoid(z)
+A = sigmoid(z)
 
 # Linear (The identity)--,no activation for final output layer. 
+def I_identity(z):
+    return z
+def dI_dz(z):
+    return np.ones_like(z)
 # For regression, the output should be an unbounded real number.
 # If sigmoid for the output: Predictions squeezed into (0,1)
 # Fine for Runge (whose true values are in (0,1]), but wrong for
@@ -128,6 +119,18 @@ main_activation = sigmoid(z)
 # PART 2) Train the Network and Compare OLS from project 1
 # =========================================================================
 
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+# Standardize input (fit on training only)
+scaler_x = StandardScaler().fit(X_train)
+X_train = scaler_x.transform(X_train)
+X_test = scaler_x.transform(X_test)
+
+# Reshape y for the batched backprop (one output per sample)
+y_train = y_train.reshape(-1, 1)
+y_test = y_test.reshape(-1, 1)
+
 # Use 1-dim Runge function. Use same data sets which gave the best MSE
 # Use polynomial order from project 1 with the best result.
 # Compare results with NN with on and two hidden layers
@@ -138,4 +141,46 @@ main_activation = sigmoid(z)
 # score. Test both SG and RMSprop and Adam and GD with different learning rates  
 
 # =========================================================================
+
+# ----- First FF from week 42 ----------------------
+def feed_forward_saver_batch(input, layers, activation_funcs):
+    layer_inputs = []
+    zs = []
+    a = input
+    for (W, b), activation_func in zip(layers, activation_funcs):
+        layer_inputs.append(a)
+        z = a @ W + b
+        a = activation_func(z)
+
+        zs.append(z)
+
+    return layer_inputs, zs, a
+
+# --------- Also BackProp batch From week 42 --------
+
+def backpropagation_batch(inputs, layers, activation_funcs, targets, activation_ders, cost_der):
+    layer_inputs, zs, predict = feed_forward_saver_batch(inputs, layers, activation_funcs)
+    layer_grads = [() for layer in layers]
+    dC_dZ = None
+
+    for i in reversed(range(len(layers))):
+        A_prev = layer_inputs[i]
+        Z = zs[i]
+        actv_der = activation_ders[i]
+
+        if i == len(layers) - 1:
+            dC_dZ = cost_der(predict, targets)
+        else:
+            W_next = layers[i + 1][0]
+            dC_dZ = dC_dZ @ W_next.T
+
+        dC_dZ = dC_dZ * actv_der(Z)
+        dC_dW = A_prev.T @ dC_dZ
+        dC_db = dC_dZ.sum(axis=0)
+
+        layer_grads[i] = (dC_dW, dC_db)
+
+    return layer_grads
+
+
 
