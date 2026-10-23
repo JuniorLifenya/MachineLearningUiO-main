@@ -6,7 +6,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
-from function_setup import runge, design_matrix, generate_data
+from function_setup2 import runge, design_matrix, generate_data
 
 # ============================================================
 # Design Matrix with polynomial setup
@@ -34,10 +34,6 @@ n = 100
 sigma = 0.1
 x = np.sort(rng.uniform(-1,1,n))
 y = runge(x) + rng.normal(0, sigma,n)
-
-# Input: RAW x, shape(n,1). NOT a polynomial design matrix
-def raw_x(x):
-    return x.reshape(-x,x)
 
 
 
