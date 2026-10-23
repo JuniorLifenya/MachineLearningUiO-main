@@ -121,18 +121,6 @@ def dI_dz(z):
 # PART 2) Train the Network and Compare OLS from project 1
 # =========================================================================
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, random_state=42
-)
-# Standardize input (fit on training only)
-scaler_x = StandardScaler().fit(X_train)
-X_train = scaler_x.transform(X_train)
-X_test = scaler_x.transform(X_test)
-
-# Reshape y for the batched backprop (one output per sample)
-y_train = y_train.reshape(-1, 1)
-y_test = y_test.reshape(-1, 1)
-
 # Use 1-dim Runge function. Use same data sets which gave the best MSE
 # Use polynomial order from project 1 with the best result.
 # Compare results with NN with on and two hidden layers
@@ -263,4 +251,25 @@ def predict(X,layers, actv_funcs):
 # ============================================================
 
 
+if __name__ == "__main__":
+    rng = np.random.default_rng(2026)
+    n = 100 
+    sigma = .1
+    x = np.linspace(rng.uniform(-1,1,n))
+    y = runge(x) + rng.normal(0,sigma,n)
 
+    # The NN-inputs: raw matrix 
+    X_nn = raw_x(x)
+    X_tr,X_te, y_tr, y_te = train_test_split( #X_tran and X_test sov...
+        X_nn, y.reshape(-1,1), 
+        test_size = .3, random_state = 42
+    )
+
+    # Here we scale our train and test data after splitting as well 
+    scaler = StandardScaler.fit(X_tr)
+    X_tr = scaler.transform(X_tr)
+    X_te = scaler.transform(X_te)
+
+    # ----- OLS baseline: best Pol-deg from Project 1 -----------
+    deg_best = 10 # Will replace with the best degree I got 
+    X_poly = design_matrix (x, degree = deg_best )
