@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
@@ -11,10 +12,11 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
 from function_setup2 import runge, sigmoid, sigmoid_der, ReLU,leaky_ReLU 
-from data_aquisition import design_matrix, raw_x
+from data_aquisition import design_matrix
+from part_a import C_mse, dC_dypred, dBC_dypred,
 
 # =========================================================================
-# PART 1 Main function, weight initialization and data scaling
+# PART 1) Main function, weight initialization and data scaling
 # =========================================================================
 
 # ---------------- Wights and biases initialization  ----------------------
@@ -70,7 +72,7 @@ def create_layers(network_input_size, layer_output_sizes,seed = None):
 def raw_x(x):
     return np.asarray(x).reshape(-1, 1)
 
-# Quick Plot to confirm the data 
+# Quick Plot to confirm the data and compare
 if __name__ == "__main__":
     rng = np.random.default_rng(2026)
     n = 100
@@ -182,5 +184,10 @@ def backpropagation_batch(inputs, layers, activation_funcs, targets, activation_
 
     return layer_grads
 
+
+# ----------- Optimization algos/methods -----------------------------
+
+def sgd_step(layers,grads,gamma):
+    return [(W-gamma*dW,b-gamma*db) for (W,b),(dW,b) in zip(layers,grads)]
 
 

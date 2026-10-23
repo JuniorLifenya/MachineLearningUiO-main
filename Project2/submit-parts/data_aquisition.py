@@ -1,12 +1,10 @@
 import numpy as np
-import pandas as pd 
 import sys 
 import matplotlib.pyplot as plt
 from pathlib import Path
-from sklearn.model_selection import train_test_split
 project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
-from function_setup2 import runge, design_matrix, generate_data
+from function_setup2 import runge
 
 # ============================================================
 # Design Matrix with polynomial setup

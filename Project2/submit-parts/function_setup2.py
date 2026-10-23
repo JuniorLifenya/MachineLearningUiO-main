@@ -5,7 +5,6 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from sklearn import datasets
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score
 
 # The exercise own starting point
 # Runge's function is defined on [-1,1] with 
