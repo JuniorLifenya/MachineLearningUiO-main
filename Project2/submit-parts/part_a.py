@@ -42,7 +42,7 @@ def mse_l2(y_targ,y_pred,params,lam):
 
 # -------------- 1.5 MSE function derivatives -----------------
 
-def dC_dypred(y_targ,y_pred):
+def dC_dypred_batch(y_targ,y_pred):
     """
         dC/dy_pred for C = (1/n) sum (y_pred - y_targ)^2.
     """

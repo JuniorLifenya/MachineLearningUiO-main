@@ -17,6 +17,7 @@
         "psudo",
         "randn",
         "rcond",
+        "rmsprop",
         "runge",
         "Scikit",
         "targ",

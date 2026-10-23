@@ -13,7 +13,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
 from function_setup2 import runge, sigmoid, sigmoid_der, ReLU,leaky_ReLU 
 from data_aquisition import design_matrix
-from part_a import C_mse, dC_dypred, dBC_dypred,
+from part_a import C_mse, dC_dypred_batch, dBC_dypred
 
 # =========================================================================
 # PART 1) Main function, weight initialization and data scaling
@@ -188,6 +188,79 @@ def backpropagation_batch(inputs, layers, activation_funcs, targets, activation_
 # ----------- Optimization algos/methods -----------------------------
 
 def sgd_step(layers,grads,gamma):
-    return [(W-gamma*dW,b-gamma*db) for (W,b),(dW,b) in zip(layers,grads)]
+    return [(W-gamma * dW,b-gamma * db) for (W,b),(dW,b) in zip(layers,grads)]
+
+def rmsprop_step(layers,grads,state,gamma,beta=.9,eps=1e-8):
+    new_state = []
+    new_layers = []
+    for (W,b), (dW,db), (sW,sb) in zip(layers,grads,state):
+        sW = beta*sW + (1-beta)*dW**2
+        sb = beta*sb + (1-beta)*db**2
+        new_layers.append((W-gamma*dW / (np.sqrt(sW) + eps),
+                           b -gamma*db / (np.sqrt(sb) + eps)))
+        new_state.append((sW,sb))
+    return new_layers, new_state
+
+def adam_step(layers,grads,state,gamma,t,
+              beta1 = .9, beta2 = .999, eps = 1e-8):
+    new_state = []
+    new_layers = []
+    for (W,b), (dW,db), (mW,vW,mb, vb) in zip (layers,grads,state):
+        mW = beta1 * mW + (1-beta1)*dW
+        vW = beta2 * vW + (1-beta2)*dW**2
+        mb = beta1*mb + (1-beta1)*db
+        vb = beta2*vb + (1-beta2)*db**2
+
+        mW_hat = mW/(1-beta1**t)
+        vW_hat = vW/(1-beta2**t)
+        mb_hat = mb/(1-beta1**t)
+        vb_hat = vb/(1-beta2**t)
+
+        new_layers.append((W-gamma*mW_hat / (np.sqrt(vW_hat) + eps),
+                           b - gamma*mb_hat / (np.sqrt(vb_hat) + eps)))
+        new_state.append((mW,vW,mb,vb))
+    return new_layers,new_state
+
+def train_network(X_train,y_train,layers,
+                  actv_funcs,actv_ders,optimizer = "adam",
+                  gamma = 1e-3, n_epochs = 500,
+                  batch_size = 32, seed = 42):
+    n = len(y_train)
+    rng = np.random_default_rng(2026)
+
+    # Initialize optimizer state 
+    if optimizer == "rmsprop":
+        state = [(np.zeros_like(W),np.zeros_like(b)) for W,b in layers]
+    elif optimizer == "adam":
+        state = [(np.zeros_like(W), np.zeros_like(W),
+                  np.zeros_like(b), np.zeros_like(b)) for W,b in layers]
+    else:
+        state = None
+
+    t = 0
+    for epoch in range(n_epochs):
+        idx = rng.permutation(n)
+        for start in range (0,n,batch_size):
+            Xb = X_train[idx[start:start + batch_size]]
+            yb = y_train[idx[start:start + batch_size]]
+            grads = backpropagation_batch(Xb,layers,actv_funcs,yb,
+                    actv_ders,dC_dypred_batch)
+        if optimizer == "sgd":
+            layers = sgd_step(layers,grads,gamma)
+        elif optimizer == "rmsprop":
+            layers,state = rmsprop_step(layers,grads,state,gamma)
+        elif optimizer == "adam":
+            t +=1
+            layers, state = adam_step(layers,grads,state,gamma,t)
+    return layers 
+
+def predict(X,layers, actv_funcs):
+    _, _, a = feed_forward_saver_batch(X,layers,actv_funcs)
+    return a
+
+# ============================================================
+# PART 3 — Driver (runs when you execute the file)
+# ============================================================
+
 
 
