@@ -255,8 +255,8 @@ if __name__ == "__main__":
     rng = np.random.default_rng(2026)
     n = 100 
     sigma = .1
-    x = np.linspace(rng.uniform(-1,1,n))
-    y = runge(x) + rng.normal(0,sigma,n)
+    x = np.linspace(rng.uniform(-1,1),n)
+    y = runge(x) + rng.normal(0.0,sigma,n)
 
     # The NN-inputs: raw matrix 
     X_nn = raw_x(x)
@@ -270,6 +270,40 @@ if __name__ == "__main__":
     X_tr = scaler.transform(X_tr)
     X_te = scaler.transform(X_te)
 
-    # ----- OLS baseline: best Pol-deg from Project 1 -----------
+    # -------- OLS baseline: best Pol-deg from Project 1 -----------
     deg_best = 10 # Will replace with the best degree I got 
-    X_poly = design_matrix (x, degree = deg_best )
+    X_poly = design_matrix (x, degree = deg_best, intercept = True)
+    Xp_tr, Xp_te, yp_tr, yp_te = train_test_split(
+        X_poly,y, test_size=.3, random_state = 42
+    )
+    # OLS closed for on training 
+    theta_ols = np.linalg.pinv(Xp_tr.T @ Xp_tr) @ Xp_tr.T @ yp_tr
+    mse_ols = C_mse(yp_te,Xp_te @ theta_ols)
+    print(f"OLS (degree {deg_best}): test MSE = {C_mse:.4e}")
+
+    # -------------- The NN configurations -------------
+    actv_funcs = [sigmoid,sigmoid, I_identity] # last one linear
+    actv_ders = [sigmoid_der,sigmoid_der,dI_dz]
+
+    
+    configs = [
+        ("1 hidden, 50 nodes", [50,1]),
+        ("1 hidden, 10 nodes", [100,1]),
+        ("2 hidden, 50/50", [50,50,1]),
+        ("2 hidden, 100/100", [100,100,1]),
+    ]
+
+    print(f"\n{"Config":<25} {"Optimizer":<10} {"gamma":<10} {"Test MSE":<12}")
+    print ("-"*60)
+
+    for name, out_sizes in configs: 
+        for opt, gamma in [("sgd",1e-2), ("rmsprop",1e-3),("adam",1e-3)]:
+            layers = create_layers(1,out_sizes,seed = 42)
+            acts = actv_funcs[:len(out_sizes)]
+            ders = actv_ders[:len(out_sizes)]
+            layers = train_network(X_tr,y_tr,layers,acts,ders,
+                                   optimizer = opt, gamma = gamma,
+                                   n_epochs = 500, batch_sizes = 32)
+            test_mse = C_mse(y_te,predict(X_te,layers,acts))
+            print(f"{name:< 25} {opt:<10} {gamma:<10.0e} {test_mse:<12.4e}")
+
