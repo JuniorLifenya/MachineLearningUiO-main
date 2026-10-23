@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
 # ---------- Which activation func for start and final output layer -------------
 
-A = sigmoid(z)
+# A = sigmoid(z)
 
 # Linear (The identity)--,no activation for final output layer. 
 def I_identity(z):
