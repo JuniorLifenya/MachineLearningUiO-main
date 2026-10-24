@@ -5,7 +5,7 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from sklearn import datasets
 import matplotlib.pyplot as plt
-from data_aquisition import design_matrix
+
 
 # The exercise own starting point
 # Runge's function is defined on [-1,1] with 
@@ -69,6 +69,7 @@ def fit_ridge(X,y,lam):
 # =========================================================================================
 
 if __name__ == "__main__":
+    from data_aquisition import design_matrix
     rng = np.random.default_rng(2026)
     n = 100
     sigma = 0.1
