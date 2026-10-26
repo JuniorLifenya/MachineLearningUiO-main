@@ -21,7 +21,7 @@ def C_mse(y_targ, y_pred): # The main mse Cost function
     if y_targ.shape != y_pred.shape:
         raise ValueError("y_targ and y_pred have different shapes")
     
-    return np.mean((y_targ - y_pred) ** 2)
+    return np.mean((y_targ - y_pred) ** 2) 
 
 def l1_penalty(params):
     return sum(np.sum(np.abs(p)) for p in params)
