@@ -76,6 +76,7 @@ def BC_l1(y_targ, y_pred, params, lam, eps=1e-12):
 def BC_l2(y_targ, y_pred,params,lam, eps=1e-12):
     return BC_entropy(y_targ,y_pred,eps) + lam * l2_penalty(params)
 
+# -------------- 2.5 Log loss function derivatives -----------------
 def dBC_dypred(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_targ) / (y_pred * (1.0 - y_pred) * y_targ.size)
@@ -85,9 +86,6 @@ def dBC_dypred(y_targ, y_pred, eps=1e-12):
 # to the cost as penalties...L = L_PDE + lam(L_IC + L_BC)
 # So here I am unsure, but moving forward first then go back
 # Change and then understand the math and code simultaneously
-
-# -------------- 2.5 Log loss function derivatives -----------------
-
 
 # ========================================================================
 # 3 Multiclass cross entropy cost/loss function (Softmax loss func)
@@ -102,7 +100,6 @@ def multiclass_cross_entropy(y_targ, y_pred, eps=1e-12):
     """y_targ one-hot, y_pred from softmax. Mean over samples."""
     y_pred = jnp.clip(y_pred, eps, 1.0)
     return jnp.mean(-jnp.sum(y_targ * jnp.log(y_pred), axis=-1))
-
 
 # -------------- 3.5 Softmax loss function derivatives -----------------
 # NOTE: for softmax + multiclass cross-entropy, DO NOT use the above derivative.
