@@ -62,7 +62,7 @@ def backpropagation_batch(inputs, layers, activation_funcs, targets,
         actv_der = activation_ders[i]
 
         if i == len(layers) - 1:
-            dC_dZ = cost_der(predict, targets)
+            dC_dZ = cost_der(targets, predict)
         else:
             W_next = layers[i + 1][0]
             dC_dZ = dC_dZ @ W_next.T
