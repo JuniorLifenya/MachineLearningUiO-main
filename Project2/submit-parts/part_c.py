@@ -10,7 +10,7 @@ sys.path.insert(0, str(project_root))
 from function_setup2 import runge, sigmoid, sigmoid_der, ReLU, ReLU_der, leaky_ReLU, leaky_ReLU_der
 from data_aquisition import design_matrix
 from part_a import C_mse, dC_dypred_batch
-from partb import raw_x,I_identity,dI_dz,create_layers,train_network,predict
+from part_b import raw_x,I_identity,dI_dz,create_layers,train_network,predict
 
 # ================================================================================
 # PART 3 — Driver for part c): activation × depth × width
@@ -100,13 +100,19 @@ if __name__ == "__main__":
 
     # --- Optional: plot train vs test MSE vs parameters ---
     fig, ax = plt.subplots(figsize=(10, 5))
+    plot_colors = {
+        "Sigmoid": ("darkred", "red"),
+        "ReLU": ("darkgreen", "green"),
+        "Leaky ReLU": ("darkblue", "blue"),
+    }
     for act_name in activation_sets:
         pts = [r for r in results if r["activation"] == act_name]
         params = [r["n_params"] for r in pts]
         train  = [r["train_mse"] for r in pts]
         test   = [r["test_mse"] for r in pts]
-        ax.plot(params, train, "o--", label=f"{act_name} train", alpha=0.6)
-        ax.plot(params, test,  "o-",  label=f"{act_name} test")
+        train_color, test_color = plot_colors[act_name]
+        ax.plot(params, train, "o--", color=train_color, label=f"{act_name} train")
+        ax.plot(params, test,  "o-",  color=test_color, label=f"{act_name} test")
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_xlabel("Number of parameters")
     ax.set_ylabel("MSE")
