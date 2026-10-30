@@ -32,7 +32,7 @@ def I_identity(z):
 def dI_dz(z):
     return np.ones_like(z)
 
-
+# column vector of input data
 def raw_x(x):
     return np.asarray(x).reshape(-1, 1)
 
@@ -74,7 +74,9 @@ def backpropagation_batch(inputs, layers, activation_funcs, targets,
 
     return layer_grads
 
-
+#--------------------------#
+#        Optimizers
+#--------------------------#
 def sgd_step(layers, grads, gamma):
     return [(W - gamma * dW, b - gamma * db)
             for (W, b), (dW, db) in zip(layers, grads)]

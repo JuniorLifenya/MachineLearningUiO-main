@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -60,12 +61,16 @@ def best_polynomial_baseline(x, y, train_ids, val_ids, test_ids, model_type):
 
 
 if __name__ == "__main__":
+    # initialize random number generator for reproducibility
     rng = np.random.default_rng(2026)
     x = np.sort(rng.uniform(-1.0, 1.0, 100))
     y = runge(x) + rng.normal(0.0, 0.1, len(x))
+
+    # Split the data into training, validation, and test sets
     ids_trainval, ids_test = train_test_split(
         np.arange(len(y)), test_size=0.3, random_state=42
     )
+    #training data split for hyperparameters and weights in seperate sets
     ids_train, ids_val = train_test_split(
         ids_trainval, test_size=0.2, random_state=42
     )
@@ -79,16 +84,25 @@ if __name__ == "__main__":
     )
     y_train = y[ids_train].reshape(-1, 1)
 
+    #searches are for regularization hyperparameters, gammas are for learning rates
+
+    #logspace functions are used to create a range of values for hyperparameter tunning
+    #like linspace, but with a logarithmic scale, which is useful for exploring a wide range of values
+
     searches = {
-        "L1": (L1_penalty_grad, [0.0, 1e-5, 1e-4, 1e-3, 1e-2]),
-        "L2": (L2_penalty_grad, [0.0, 1e-5, 1e-4, 1e-3, 1e-2]),
+        "L1": (L1_penalty_grad, np.logspace(np.log10(1e-10), np.log10(1e-2), 8)),
+        "L2": (L2_penalty_grad, np.logspace(np.log10(1e-10), np.log10(1e-2), 8)),
     }
+    gammas = np.logspace(np.log10(1e-2), np.log10(1e0), 8)
+
+    mse_grids = {}
     for name, (penalty_grad, lambdas) in searches.items():
         best = None
+        mse_grid = np.full((len(gammas), len(lambdas)), np.inf)
         for architecture in ([20, 1], [20, 20, 1]):
             acts = [sigmoid] * (len(architecture) - 1) + [I_identity]
-            for gamma in (1e-3, 3e-3):
-                for lam in lambdas:
+            for gamma_index, gamma in enumerate(gammas):
+                for lambda_index, lam in enumerate(lambdas):
                     layers, acts = train_regularized(
                         X_train, y_train,
                         create_layers(1, architecture, seed=42),
@@ -97,8 +111,12 @@ if __name__ == "__main__":
                     val_mse = C_mse(
                         y[ids_val].reshape(-1, 1), predict(X_val, layers, acts)
                     )
+                    mse_grid[gamma_index, lambda_index] = min(
+                        mse_grid[gamma_index, lambda_index], val_mse
+                    )
                     if best is None or val_mse < best[0]:
                         best = (val_mse, architecture, gamma, lam, layers, acts)
+        mse_grids[name] = mse_grid
         val_mse, architecture, gamma, lam, layers, acts = best
         test_mse = C_mse(
             y[ids_test].reshape(-1, 1), predict(X_test, layers, acts)
@@ -113,3 +131,26 @@ if __name__ == "__main__":
         )
         print(f"Project 1 {model_type}: degree={degree}, alpha={alpha:.2e}, "
               f"validation MSE={val_mse:.4e}, test MSE={test_mse:.4e}")
+
+    # Creating heatmap plot for hyperparameters
+
+    fig, axes = plt.subplots(
+        1, len(searches), figsize=(12, 5), sharey=True, constrained_layout=True
+    )
+    vmin = min(grid.min() for grid in mse_grids.values())
+    vmax = max(grid.max() for grid in mse_grids.values())
+    for ax, (name, (_, lambdas)) in zip(axes, searches.items()):
+        image = ax.imshow(
+            mse_grids[name], origin="lower", aspect="auto", cmap="viridis",
+            vmin=vmin, vmax=vmax,
+        )
+        ax.set_title(f"{name} regularization")
+        ax.set_xlabel("Lambda (λ)")
+        ax.set_xticks(np.arange(len(lambdas)))
+        ax.set_xticklabels([f"{lam:g}" for lam in lambdas], rotation=45)
+        ax.set_yticks(np.arange(len(gammas)))
+        ax.set_yticklabels([f"{gamma:g}" for gamma in gammas])
+    axes[0].set_ylabel("Gamma (γ)")
+    fig.colorbar(image, ax=axes, label="Validation MSE")
+    fig.suptitle("Validation MSE by gamma and lambda")
+    plt.show()
