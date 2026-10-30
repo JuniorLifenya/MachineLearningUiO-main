@@ -64,18 +64,26 @@ def L2_penalty_grad(params, lam):
 # ========================================================================
 
 def BC_entropy(y_targ,y_pred,eps = 1e-12):
+
+    """
+    this function computes the binary cross-entropy 
+    loss for a batch of predictions and targets.    
+    """
+    #clip lower bound to avoid undefined log(0)
     y_pred = jnp.clip(y_pred, eps, 1.0-eps)
     return -jnp.mean(
         y_targ*jnp.log(y_pred) 
         + (1.0-y_targ)*jnp.log(1.0-y_pred)
         )
 
+#cross entropy loss funcs with integrated l1 and l2 penalties|
 def BC_l1(y_targ, y_pred, params, lam, eps=1e-12):
     return BC_entropy(y_targ, y_pred, eps) + lam * l1_penalty(params)
 
 def BC_l2(y_targ, y_pred,params,lam, eps=1e-12):
     return BC_entropy(y_targ,y_pred,eps) + lam * l2_penalty(params)
 
+# this is the derivative of the binary cross entropy loss with respect to the predictions
 def dBC_dy_pred(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_targ) / (y_pred * (1.0 - y_pred) * y_targ.size)
@@ -98,10 +106,11 @@ def softmax(z):
     e_z = jnp.exp(z - jnp.max(z, axis=1, keepdims=True))
     return e_z / jnp.sum(e_z, axis=1, keepdims=True)
 
+#cross entropy loss with more than 2 classes, y = one hot encoded
 def multiclass_cross_entropy(y_targ, y_pred, eps=1e-12):
     """y_targ one-hot, y_pred from softmax. Mean over samples."""
     y_pred = jnp.clip(y_pred, eps, 1.0)
-    return jnp.mean(-jnp.sum(y_targ * jnp.log(y_pred), axis=-1))
+    return jnp.mean(-jnp.sum(y_targ * jnp.log(y_pred), axis=-1))   
 
 
 # -------------- 3.5 Softmax loss function derivatives -----------------

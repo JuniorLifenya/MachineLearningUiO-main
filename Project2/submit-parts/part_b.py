@@ -38,6 +38,7 @@ def raw_x(x):
 
 
 def feed_forward_saver_batch(inputs, layers, activation_funcs):
+    """ Save the layer inputs and pre-activations for backpropagation. """
     layer_inputs, zs = [], []
     a = inputs
     for (W, b), activation in zip(layers, activation_funcs):
@@ -50,6 +51,7 @@ def feed_forward_saver_batch(inputs, layers, activation_funcs):
 
 def backpropagation_batch(inputs, layers, activation_funcs, targets,
                           activation_ders, cost_der):
+    """Compute gradients of the cost function with respect to each layer's weights and biases."""
     layer_inputs, zs, predict = feed_forward_saver_batch(
         inputs, layers, activation_funcs
     )
