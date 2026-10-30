@@ -42,7 +42,7 @@ def mse_l2(y_targ,y_pred,params,lam):
 
 # -------------- 1.5 MSE function derivatives -----------------
 
-def dC_dypred_batch(y_targ,y_pred):
+def dC_dy_pred_batch(y_targ,y_pred):
     """
         dC/dy_pred for C = (1/n) sum (y_pred - y_targ)^2.
     """
@@ -76,7 +76,7 @@ def BC_l1(y_targ, y_pred, params, lam, eps=1e-12):
 def BC_l2(y_targ, y_pred,params,lam, eps=1e-12):
     return BC_entropy(y_targ,y_pred,eps) + lam * l2_penalty(params)
 
-def dBC_dypred(y_targ, y_pred, eps=1e-12):
+def dBC_dy_pred(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_targ) / (y_pred * (1.0 - y_pred) * y_targ.size)
 
@@ -109,5 +109,4 @@ def multiclass_cross_entropy(y_targ, y_pred, eps=1e-12):
 # The combined derivative wrt the pre-softmax z is simply:
 #     dC/dz = (y_pred - y_targ)   [up to the 1/n factor if using mean]
 # This is what you set dC_dz = predict - target to in the backprop code.
-
 

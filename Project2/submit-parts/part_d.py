@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 
 from function_setup2 import runge, sigmoid, sigmoid_der
 from data_aquisition import design_matrix
-from part_a import C_mse, dC_dypred_batch, L1_penalty_grad, L2_penalty_grad
+from part_a import C_mse, dC_dy_pred_batch, L1_penalty_grad, L2_penalty_grad
 from part_b import (
     I_identity, dI_dz, raw_x, create_layers, backpropagation_batch,
     adam_step, predict,
@@ -26,7 +26,7 @@ def train_regularized(X, y, layers, lam, penalty_grad, gamma, epochs=300):
         for start in range(0, len(y), 32):
             ids = order[start:start + 32]
             grads = backpropagation_batch(
-                X[ids], layers, acts, y[ids], ders, dC_dypred_batch
+                X[ids], layers, acts, y[ids], ders, dC_dy_pred_batch
             )
             reg_grads = penalty_grad([W for W, _ in layers], lam)
             grads = [(dW + reg_dW, db)

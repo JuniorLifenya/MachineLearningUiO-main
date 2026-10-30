@@ -9,7 +9,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 from function_setup2 import runge, sigmoid, sigmoid_der, ReLU, ReLU_der, leaky_ReLU, leaky_ReLU_der
 from data_aquisition import design_matrix
-from part_a import C_mse, dC_dypred_batch
+from part_a import C_mse, dC_dy_pred_batch
 
 
 def create_layers(network_input_size, layer_output_sizes, seed=None):
@@ -138,7 +138,7 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
             Xb = X_train[idx[start:start + batch_size]]
             yb = y_train[idx[start:start + batch_size]]
             grads = backpropagation_batch(
-                Xb, layers, actv_funcs, yb, actv_ders, dC_dypred_batch
+                Xb, layers, actv_funcs, yb, actv_ders, dC_dy_pred_batch
             )
             if optimizer == "sgd":
                 layers = sgd_step(layers, grads, gamma)
