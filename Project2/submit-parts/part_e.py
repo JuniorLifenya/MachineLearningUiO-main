@@ -1,9 +1,15 @@
 import os
 
-from matplotlib import cm
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_openml
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    classification_report,
+    confusion_matrix,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.model_selection import train_test_split
 
 from function_setup2 import ReLU, ReLU_der, leaky_ReLU, leaky_ReLU_der
@@ -53,6 +59,50 @@ def _evaluate(X, y, layers, activation_funcs):
         np.mean(np.argmax(np.asarray(probabilities), axis=1) == np.argmax(y, axis=1))
     )
     return loss, accuracy
+
+
+def _classification_metrics(y_true, probabilities):
+    labels = np.arange(10)
+    y_true = np.asarray(y_true).ravel()
+    probabilities = np.asarray(probabilities)
+    y_pred = np.argmax(probabilities, axis=1)
+    y_true_one_hot = np.eye(len(labels), dtype=int)[y_true]
+
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    digit_totals = cm.sum(axis=1)
+    digit_accuracies = np.divide(
+        np.diag(cm),
+        digit_totals,
+        out=np.zeros(len(digit_totals), dtype=float),
+        where=digit_totals != 0,
+    )
+    return {
+        "predictions": y_pred,
+        "confusion_matrix": cm,
+        "digit_accuracies": digit_accuracies,
+        "auc_per_digit": roc_auc_score(
+            y_true_one_hot, probabilities, average=None
+        ),
+        "auc_macro": roc_auc_score(
+            y_true_one_hot, probabilities, average="macro"
+        ),
+    }
+
+
+def _add_model_config_captions(fig, axes, results, epochs, batch_size):
+    for ax, (model_name, metrics) in zip(axes, results.items()):
+        config = metrics["configuration"]
+        position = ax.get_position()
+        fig.text(
+            position.x0 + position.width / 2,
+            0.025,
+            f"Hidden layers: {config['hidden_layers']}\n"
+            f"Activations: {config['activations']}\n"
+            f"Epochs: {epochs} | Batch size: {batch_size}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
 
 
 def train_mnist(X_train, y_train, X_val, y_val, hidden_sizes,
@@ -151,62 +201,129 @@ if __name__ == "__main__":
     X_train, X_val, y_train, y_val = train_test_split(
         X_train, y_train, test_size=0.2, random_state=42, stratify=y_train
     )
+    epochs = 50
+    batch_size = 256
+    gamma = 2e-3
+    seed = 42
 
-    activation_funcs = [leaky_ReLU, leaky_ReLU, softmax]
-    activation_ders = [leaky_ReLU_der, leaky_ReLU_der, dI_dz]
-    layers, activation_funcs, _ = train_mnist(
+    activation_funcs_nn = [leaky_ReLU, leaky_ReLU, softmax]
+    activation_ders_nn = [leaky_ReLU_der, leaky_ReLU_der, dI_dz]
+
+    activation_funcs_log = [softmax]
+    activation_ders_log = [dI_dz]
+    
+    print("Training neural network (2 hidden layers: 256, 128)")
+    layers_nn, activation_funcs_nn, _ = train_mnist(
         X_train, y_train, X_val, y_val,
         hidden_sizes=(256, 128),
-        activation_funcs=activation_funcs,
-        activation_ders=activation_ders,
-        gamma=2e-3,
-        epochs=50,
-        batch_size=256,
-        seed=42
+        activation_funcs=activation_funcs_nn,
+        activation_ders=activation_ders_nn,
+        gamma=gamma,
+        epochs=epochs,
+        batch_size=batch_size,
+        seed=seed
+    )
+
+    print("Training logistic regression (softmax layer, no hidden layers)")
+    layers_log, activation_funcs_log, _ = train_mnist(
+        X_train, y_train, X_val, y_val,
+        hidden_sizes=(),
+        activation_funcs=activation_funcs_log,
+        activation_ders=activation_ders_log,
+        gamma=gamma,
+        epochs=epochs,
+        batch_size=batch_size,
+        seed=seed
     )
 
     y_test_one_hot = np.eye(10, dtype=np.float32)[y_test]
-    test_loss, test_accuracy = _evaluate(
-        X_test, y_test_one_hot, layers, activation_funcs
-    )
-    print(f"Test loss={test_loss:.4f}, test accuracy={test_accuracy:.4f}")
+    models = {
+        "Logistic regression": (layers_log, activation_funcs_log),
+        "Neural network": (layers_nn, activation_funcs_nn),
+    }
+    model_configurations = {
+        "Logistic regression": {
+            "hidden_layers": "None",
+            "activations": "Softmax",
+        },
+        "Neural network": {
+            "hidden_layers": "256, 128",
+            "activations": "Leaky ReLU, Leaky ReLU, Softmax",
+        },
+    }
+    results = {}
+    for model_name, (layers, activation_funcs) in models.items():
+        probabilities = np.asarray(predict(X_test, layers, activation_funcs))
+        test_loss = float(multiclass_cross_entropy(y_test_one_hot, probabilities))
+        metrics = _classification_metrics(y_test, probabilities)
+        results[model_name] = {
+            "probabilities": probabilities,
+            "configuration": model_configurations[model_name],
+            **metrics,
+        }
 
-    """CLASSIFICATION REPORT"""
+        print(f"\n{model_name} test loss: {test_loss:.4f}")
+        print(f"{model_name} test accuracy: {metrics['predictions'].eq if False else np.mean(metrics['predictions'] == y_test):.4f}")
+        print(f"{model_name} macro ROC AUC: {metrics['auc_macro']:.4f}")
+        print("ROC AUC per digit:")
+        for digit, auc in enumerate(metrics["auc_per_digit"]):
+            print(f"  Digit {digit}: {auc:.4f}")
+        print("Classification report:")
+        print(
+            classification_report(
+                y_test,
+                metrics["predictions"],
+                labels=np.arange(10),
+                target_names=[str(digit) for digit in range(10)],
+                zero_division=0,
+            )
+        )
+        print("Confusion matrix:")
+        print(metrics["confusion_matrix"])
+        print("Accuracy per digit:")
+        for digit, accuracy in enumerate(metrics["digit_accuracies"]):
+            print(f"  Digit {digit}: {accuracy:.2%}")
 
-    from sklearn.metrics import (confusion_matrix as sk_confusion_matrix, ConfusionMatrixDisplay,
-                             accuracy_score, precision_score, recall_score, f1_score,
-                             classification_report as sk_classification_report,
-                             roc_curve as sk_roc_curve, roc_auc_score, RocCurveDisplay)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    for ax, (model_name, metrics) in zip(axes, results.items()):
+        display = ConfusionMatrixDisplay(
+            confusion_matrix=metrics["confusion_matrix"],
+            display_labels=np.arange(10),
+        )
+        cmap = "Blues" if model_name == "Logistic regression" else "Greens"
+        display.plot(ax=ax, cmap=cmap, values_format="d", colorbar=False)
+        ax.set_title(model_name)
+    fig.suptitle("MNIST confusion matrices")
+    fig.tight_layout(rect=(0, 0.2, 1, 0.94))
+    _add_model_config_captions(fig, axes, results, epochs, batch_size)
 
-    # from week 43 exercises - classification report and confusion matrix
-    threshold = 0.5
-    p_mnist = np.asarray(feed_forward_saver_batch(X_test, layers, activation_funcs)[2])
-    y_pred_mnist = (p_mnist > threshold).astype(int)
-    y_pred_mnist = np.argmax(p_mnist, axis=1) # for multi-class classification, we take the class with the highest probability
-    y_test = np.asarray(y_test).ravel()
+    y_test_one_hot = np.eye(10, dtype=int)[np.asarray(y_test).ravel()]
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharex=True, sharey=True)
+    roc_colors = plt.get_cmap("viridis", 10)
+    for ax, (model_name, metrics) in zip(axes, results.items()):
+        for digit in range(10):
+            fpr, tpr, _ = roc_curve(
+                y_test_one_hot[:, digit],
+                metrics["probabilities"][:, digit],
+            )
+            ax.plot(
+                fpr,
+                tpr,
+                color=roc_colors(digit),
+                label=f"Digit {digit} (AUC {metrics['auc_per_digit'][digit]:.3f})",
+            )
+        ax.plot([0, 1], [0, 1], "k--", label="Chance")
+        ax.set(
+            title=f"{model_name} (macro AUC {metrics['auc_macro']:.3f})",
+            xlabel="False positive rate",
+            ylabel="True positive rate",
+        )
+        ax.legend(loc="lower right", fontsize=8)
+        ax.grid(True, alpha=0.3)
 
-    """ROC CURVE AND AUC"""
-
-    """CONFUSION MATRIX DISPLAY"""
-    cm = sk_confusion_matrix(y_test, y_pred_mnist, labels=np.arange(10))
-    print(cm)
-
-    digit_totals = cm.sum(axis=1)
-    digit_accuracies = np.divide(
-        np.diag(cm),
-        digit_totals,
-        out=np.zeros(len(digit_totals), dtype=float),
-        where=digit_totals != 0,
-    )
-    print("Accuracy per digit:")
-    for digit, accuracy in enumerate(digit_accuracies):
-        print(f"Digit {digit}: {accuracy:.2%}")
-    
-    display = ConfusionMatrixDisplay(
-        confusion_matrix=cm,
-        display_labels=np.arange(10),
-    )
-    display.plot(cmap="Greens", values_format="d")
+    fig.suptitle("MNIST one-vs-rest ROC curves")
+    fig.tight_layout(rect=(0, 0.2, 1, 0.94))
+    _add_model_config_captions(fig, axes, results, epochs, batch_size)
     plt.show()
 
 
