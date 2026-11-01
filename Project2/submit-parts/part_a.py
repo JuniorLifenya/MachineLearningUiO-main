@@ -36,7 +36,7 @@ def mse_l2(y_targ,y_pred,params,lam):
     return C_mse(y_targ,y_pred) + lam * l2_penalty(params)
 
 # Here the params will be a list (params = [W1,b1,W2,b2])
-#  of Neural network trainable arrays
+# of Neural network trainable arrays
 # The penalties are not on the theta params anymore,
 # but the weight matrices W(l) for Neural Networks
 
