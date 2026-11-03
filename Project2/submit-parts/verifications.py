@@ -1,11 +1,16 @@
 # verify_grad.py
 import numpy as np
 import jax, jax.numpy as jnp
+import sys
+from pathlib import Path
+
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 jax.config.update("jax_enable_x64", True)          # match numpy float64
 
 from function_setup2 import sigmoid, sigmoid_der
 from part_a          import C_mse, dC_dypred_batch
-from partb           import (create_layers, backpropagation_batch,
+from part_b           import (create_layers, backpropagation_batch,
                              I_identity, dI_dz,predict)
 
 # ---- 2 hidden (sigmoid) + linear output ----
