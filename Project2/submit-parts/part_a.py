@@ -10,6 +10,8 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
 
+from part_a import sigmoid
+
 # ========================================================================
 # 1 MSE functions
 # ========================================================================
@@ -82,9 +84,13 @@ def BC_l1(y_targ, y_pred, params, lam, eps=1e-12):
 def BC_l2(y_targ, y_pred,params,lam, eps=1e-12):
     return BC_entropy(y_targ,y_pred,eps) + lam * l2_penalty(params)
 
+
 def dBC_dypred(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_targ) / (y_pred * (1.0 - y_pred) * y_targ.size)
+
+def dBC_dz(y_targ, z):
+    return (sigmoid(z) - y_targ) / y_targ.size
 
 # However the literature says that we actually do this because 
 # We want to use the NN itself as the solution and add conditions
@@ -106,7 +112,6 @@ def multiclass_cross_entropy(y_targ, y_pred, eps=1e-12):
     """y_targ one-hot, y_pred from softmax. Mean over samples."""
     y_pred = jnp.clip(y_pred, eps, 1.0)
     return jnp.mean(-jnp.sum(y_targ * jnp.log(y_pred), axis=-1))   
-
 
 # -------------- 3.5 Softmax loss function derivatives -----------------
 # NOTE: for softmax + multiclass cross-entropy, DO NOT use the above derivative.

@@ -51,7 +51,9 @@ def feed_forward_saver_batch(inputs, layers, activation_funcs):
 
 def backpropagation_batch(inputs, layers, activation_funcs, targets,
                           activation_ders, cost_der, forward_pass=None):
-    """Compute gradients of the cost function with respect to each layer's weights and biases."""
+    """
+        Compute gradients of the cost function with respect to each layer's weights and biases.
+    """
     if forward_pass is None:
         forward_pass = feed_forward_saver_batch(
             inputs, layers, activation_funcs
