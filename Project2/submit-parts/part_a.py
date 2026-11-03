@@ -83,7 +83,8 @@ def BC_l1(y_targ, y_pred, params, lam, eps=1e-12):
 def BC_l2(y_targ, y_pred,params,lam, eps=1e-12):
     return BC_entropy(y_targ,y_pred,eps) + lam * l2_penalty(params)
 
-def dBC_dypred(y_targ, y_pred, eps=1e-12):
+# this is the derivative of the binary cross entropy loss with respect to the predictions
+def dBC_dy_pred(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_targ) / (y_pred * (1.0 - y_pred) * y_targ.size)
 

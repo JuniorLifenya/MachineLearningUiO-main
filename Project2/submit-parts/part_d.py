@@ -13,24 +13,31 @@ from part_b import (
 )
 
 
-def train_regularized(X, y, layers, lam, penalty_grad, gamma, epochs=300):
-    rng = np.random.default_rng(42)
-    state = [(np.zeros_like(W), np.zeros_like(W),
-              np.zeros_like(b), np.zeros_like(b)) for W, b in layers]
+def train_regularized(
+    X, y, layers, lam, penalty_grad, gamma, epochs=300, batch_size=32, seed=42
+):
+    """Train a sigmoid network for regression with L1 or L2 weight regularization."""
+    rng = np.random.default_rng(seed)
+    state = [
+        (np.zeros_like(W), np.zeros_like(W), np.zeros_like(b), np.zeros_like(b))
+        for W, b in layers
+    ]
     acts = [sigmoid] * (len(layers) - 1) + [I_identity]
     ders = [sigmoid_der] * (len(layers) - 1) + [dI_dz]
     t = 0
 
     for _ in range(epochs):
         order = rng.permutation(len(y))
-        for start in range(0, len(y), 32):
-            ids = order[start:start + 32]
+        for start in range(0, len(y), batch_size):
+            ids = order[start:start + batch_size]
             grads = backpropagation_batch(
                 X[ids], layers, acts, y[ids], ders, dC_dy_pred_batch
             )
             reg_grads = penalty_grad([W for W, _ in layers], lam)
-            grads = [(dW + reg_dW, db)
-                     for (dW, db), reg_dW in zip(grads, reg_grads)]
+            grads = [
+                (dW + reg_dW, db)
+                for (dW, db), reg_dW in zip(grads, reg_grads)
+            ]
             t += 1
             layers, state = adam_step(layers, grads, state, gamma, t)
     return layers, acts
@@ -94,6 +101,9 @@ if __name__ == "__main__":
         "L2": (L2_penalty_grad, np.logspace(np.log10(1e-10), np.log10(1e-2), 8)),
     }
     gammas = np.logspace(np.log10(1e-2), np.log10(1e0), 8)
+    epochs = 300
+    batch_size = 32
+    seed = 42
 
     mse_grids = {}
     for name, (penalty_grad, lambdas) in searches.items():
@@ -104,9 +114,15 @@ if __name__ == "__main__":
             for gamma_index, gamma in enumerate(gammas):
                 for lambda_index, lam in enumerate(lambdas):
                     layers, acts = train_regularized(
-                        X_train, y_train,
-                        create_layers(1, architecture, seed=42),
-                        lam, penalty_grad, gamma,
+                        X_train,
+                        y_train,
+                        create_layers(1, architecture, seed=seed),
+                        lam=lam,
+                        penalty_grad=penalty_grad,
+                        gamma=gamma,
+                        epochs=epochs,
+                        batch_size=batch_size,
+                        seed=seed,
                     )
                     val_mse = C_mse(
                         y[ids_val].reshape(-1, 1), predict(X_val, layers, acts)
