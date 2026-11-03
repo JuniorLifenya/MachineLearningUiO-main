@@ -105,9 +105,15 @@ def _add_model_config_captions(fig, axes, results, epochs, batch_size):
 
 
 def train_mnist(X_train, y_train, X_val, y_val, hidden_sizes,
-                activation_funcs, activation_ders,
+                activation_funcs, activation_ders, lam=0.0,
+                regularization_ders=None,
                 gamma=1e-3, epochs=10, batch_size=128, seed=42):
-    """Train a softmax classifier using the provided network architecture."""
+    """Train a softmax classifier, optionally regularizing its weights."""
+    if not np.isfinite(lam) or lam < 0:
+        raise ValueError("lam must be a finite, non-negative value")
+    if lam > 0 and regularization_ders is None:
+        raise ValueError("provide a regularization gradient when lam is positive")
+
     input_size = X_train.shape[1]
     hidden_sizes = tuple(hidden_sizes)
     activation_funcs = list(activation_funcs)
@@ -165,7 +171,7 @@ def train_mnist(X_train, y_train, X_val, y_val, hidden_sizes,
                 )
             )
 
-            gradients = backpropagation_batch(
+            grads = backpropagation_batch(
                 X_batch,
                 layers,
                 activation_funcs,
@@ -174,8 +180,28 @@ def train_mnist(X_train, y_train, X_val, y_val, hidden_sizes,
                 dC_dz_softmax,
                 forward_pass=forward_pass,
             )
+            
+            # regularization
+            """if reagularization constant > 0, we compute the gradient for the regularization
+            and sum it with the backprop gradient to get a final gradient with regularization"""
+            
+            if lam > 0:
+                reg_grads = regularization_ders(
+                    [W for W, _ in layers], lam
+                )
+                if len(reg_grads) != len(grads) or any(
+                    reg_dW.shape != dW.shape
+                    for (dW, _), reg_dW in zip(grads, reg_grads)
+                ):
+                    raise ValueError(
+                        "regularization gradients must match each weight matrix"
+                    )
+                grads = [
+                    (dW + reg_dW, db)
+                    for (dW, db), reg_dW in zip(grads, reg_grads)
+                ]
             step += 1
-            layers, state = adam_step(layers, gradients, state, gamma, step)
+            layers, state = adam_step(layers, grads, state, gamma, step)
 
         history["train_loss"].append(loss_sum / len(order))
         history["train_accuracy"].append(correct / len(order))
