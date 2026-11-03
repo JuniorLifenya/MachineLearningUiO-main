@@ -10,6 +10,8 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
 
+from part_a import sigmoid
+
 # ========================================================================
 # 1 MSE functions
 # ========================================================================
@@ -58,7 +60,6 @@ def L2_penalty_grad(params, lam):
     return [2.0 * lam * np.asarray(p) for p in params]
 
 
-
 # ========================================================================
 # 2 Binary cross entropy (log loss)
 # ========================================================================
@@ -88,6 +89,9 @@ def dBC_dy_pred(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_targ) / (y_pred * (1.0 - y_pred) * y_targ.size)
 
+def dBC_dz(y_targ, z):
+    return (sigmoid(z) - y_targ) / y_targ.size
+
 # However the literature says that we actually do this because 
 # We want to use the NN itself as the solution and add conditions
 # to the cost as penalties...L = L_PDE + lam(L_IC + L_BC)
@@ -114,4 +118,9 @@ def multiclass_cross_entropy(y_targ, y_pred, eps=1e-12):
 # The combined derivative wrt the pre-softmax z is simply:
 #     dC/dz = (y_pred - y_targ)   [up to the 1/n factor if using mean]
 # This is what you set dC_dz = predict - target to in the backprop code.
+
+def dC_dz_softmax(y_true, y_pred):
+    # Fused softmax/cross-entropy derivative; the final activation derivative
+    # is set to one so backpropagation_batch applies this directly to logits.
+    return (y_pred - y_true) / len(y_true)
 

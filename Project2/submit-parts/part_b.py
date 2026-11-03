@@ -7,7 +7,7 @@ from pathlib import Path
 
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
-from function_setup2 import runge, sigmoid, sigmoid_der, ReLU, ReLU_der, leaky_ReLU, leaky_ReLU_der
+from function_setup2 import runge, sigmoid, sigmoid_der
 from data_aquisition import design_matrix
 from part_a import C_mse, dC_dy_pred_batch
 
@@ -51,7 +51,9 @@ def feed_forward_saver_batch(inputs, layers, activation_funcs):
 
 def backpropagation_batch(inputs, layers, activation_funcs, targets,
                           activation_ders, cost_der, forward_pass=None):
-    """Compute gradients of the cost function with respect to each layer's weights and biases."""
+    """
+        Compute gradients of the cost function with respect to each layer's weights and biases.
+    """
     if forward_pass is None:
         forward_pass = feed_forward_saver_batch(
             inputs, layers, activation_funcs

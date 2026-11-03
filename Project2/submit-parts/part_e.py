@@ -182,7 +182,7 @@ def train_mnist(
                 activation_funcs,
                 y_batch,
                 activation_ders,
-                _cross_entropy_d_logits,
+                dC_dz_softmax,
                 forward_pass=forward_pass,
             )
 
