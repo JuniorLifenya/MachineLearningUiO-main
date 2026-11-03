@@ -42,7 +42,7 @@ def mse_l2(y_targ,y_pred,params,lam):
 
 # -------------- 1.5 MSE function derivatives -----------------
 
-def dC_dypred_batch(y_targ,y_pred):
+def dC_dy_pred_batch(y_targ,y_pred):
     """
         dC/dy_pred for C = (1/n) sum (y_pred - y_targ)^2.
     """
@@ -64,19 +64,25 @@ def L2_penalty_grad(params, lam):
 # ========================================================================
 
 def BC_entropy(y_targ,y_pred,eps = 1e-12):
+
+    """
+    this function computes the binary cross-entropy 
+    loss for a batch of predictions and targets.    
+    """
+    #clip lower bound to avoid undefined log(0)
     y_pred = jnp.clip(y_pred, eps, 1.0-eps)
     return -jnp.mean(
         y_targ*jnp.log(y_pred) 
         + (1.0-y_targ)*jnp.log(1.0-y_pred)
         )
 
+#cross entropy loss funcs with integrated l1 and l2 penalties|
 def BC_l1(y_targ, y_pred, params, lam, eps=1e-12):
     return BC_entropy(y_targ, y_pred, eps) + lam * l1_penalty(params)
 
 def BC_l2(y_targ, y_pred,params,lam, eps=1e-12):
     return BC_entropy(y_targ,y_pred,eps) + lam * l2_penalty(params)
 
-# -------------- 2.5 Log loss function derivatives -----------------
 def dBC_dypred(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0 - eps)
     return (y_pred - y_targ) / (y_pred * (1.0 - y_pred) * y_targ.size)
@@ -96,15 +102,15 @@ def softmax(z):
     e_z = jnp.exp(z - jnp.max(z, axis=1, keepdims=True))
     return e_z / jnp.sum(e_z, axis=1, keepdims=True)
 
+#cross entropy loss with more than 2 classes, y = one hot encoded
 def multiclass_cross_entropy(y_targ, y_pred, eps=1e-12):
     """y_targ one-hot, y_pred from softmax. Mean over samples."""
     y_pred = jnp.clip(y_pred, eps, 1.0)
-    return jnp.mean(-jnp.sum(y_targ * jnp.log(y_pred), axis=-1))
+    return jnp.mean(-jnp.sum(y_targ * jnp.log(y_pred), axis=-1))   
 
 # -------------- 3.5 Softmax loss function derivatives -----------------
 # NOTE: for softmax + multiclass cross-entropy, DO NOT use the above derivative.
 # The combined derivative wrt the pre-softmax z is simply:
 #     dC/dz = (y_pred - y_targ)   [up to the 1/n factor if using mean]
 # This is what you set dC_dz = predict - target to in the backprop code.
-
 

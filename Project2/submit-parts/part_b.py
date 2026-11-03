@@ -9,7 +9,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 from function_setup2 import runge, sigmoid, sigmoid_der, ReLU, ReLU_der, leaky_ReLU, leaky_ReLU_der
 from data_aquisition import design_matrix
-from part_a import C_mse, dC_dypred_batch
+from part_a import C_mse, dC_dy_pred_batch
 
 
 def create_layers(network_input_size, layer_output_sizes, seed=None):
@@ -32,12 +32,13 @@ def I_identity(z):
 def dI_dz(z):
     return np.ones_like(z)
 
-
+# column vector of input data
 def raw_x(x):
     return np.asarray(x).reshape(-1, 1)
 
 
 def feed_forward_saver_batch(inputs, layers, activation_funcs):
+    """ Save the layer inputs and pre-activations for backpropagation. """
     layer_inputs, zs = [], []
     a = inputs
     for (W, b), activation in zip(layers, activation_funcs):
@@ -49,10 +50,13 @@ def feed_forward_saver_batch(inputs, layers, activation_funcs):
 
 
 def backpropagation_batch(inputs, layers, activation_funcs, targets,
-                          activation_ders, cost_der):
-    layer_inputs, zs, predict = feed_forward_saver_batch(
-        inputs, layers, activation_funcs
-    )
+                          activation_ders, cost_der, forward_pass=None):
+    """Compute gradients of the cost function with respect to each layer's weights and biases."""
+    if forward_pass is None:
+        forward_pass = feed_forward_saver_batch(
+            inputs, layers, activation_funcs
+        )
+    layer_inputs, zs, predict = forward_pass
     layer_grads = [None] * len(layers)
     dC_dZ = None
 
@@ -74,7 +78,9 @@ def backpropagation_batch(inputs, layers, activation_funcs, targets,
 
     return layer_grads
 
-
+#--------------------------#
+#        Optimizers
+#--------------------------#
 def sgd_step(layers, grads, gamma):
     return [(W - gamma * dW, b - gamma * db)
             for (W, b), (dW, db) in zip(layers, grads)]
@@ -136,7 +142,7 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
             Xb = X_train[idx[start:start + batch_size]]
             yb = y_train[idx[start:start + batch_size]]
             grads = backpropagation_batch(
-                Xb, layers, actv_funcs, yb, actv_ders, dC_dypred_batch
+                Xb, layers, actv_funcs, yb, actv_ders, dC_dy_pred_batch
             )
             if optimizer == "sgd":
                 layers = sgd_step(layers, grads, gamma)
