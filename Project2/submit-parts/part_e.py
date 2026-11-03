@@ -16,8 +16,8 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 
-from function_setup2 import ReLU, ReLU_der, leaky_ReLU, leaky_ReLU_der
-from part_a import multiclass_cross_entropy, softmax
+from function_setup2 import leaky_ReLU, leaky_ReLU_der
+from part_a import multiclass_cross_entropy, softmax, dC_dz_softmax
 from part_b import (
     backpropagation_batch,
     create_layers,
@@ -49,11 +49,6 @@ def load_mnist():
     y = mnist.target.astype(int)
     return X[:60000], y[:60000], X[60000:], y[60000:]
 
-
-def _cross_entropy_d_logits(y_true, y_pred):
-    # Fused softmax/cross-entropy derivative; the final activation derivative
-    # is set to one so backpropagation_batch applies this directly to logits.
-    return (y_pred - y_true) / len(y_true)
 
 
 def _evaluate(X, y, layers, activation_funcs):
@@ -176,7 +171,7 @@ def train_mnist(X_train, y_train, X_val, y_val, hidden_sizes,
                 activation_funcs,
                 y_batch,
                 activation_ders,
-                _cross_entropy_d_logits,
+                dC_dz_softmax,
                 forward_pass=forward_pass,
             )
             step += 1

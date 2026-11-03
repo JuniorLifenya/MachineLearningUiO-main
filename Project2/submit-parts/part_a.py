@@ -58,7 +58,6 @@ def L2_penalty_grad(params, lam):
     return [2.0 * lam * np.asarray(p) for p in params]
 
 
-
 # ========================================================================
 # 2 Binary cross entropy (log loss)
 # ========================================================================
@@ -108,9 +107,15 @@ def multiclass_cross_entropy(y_targ, y_pred, eps=1e-12):
     y_pred = jnp.clip(y_pred, eps, 1.0)
     return jnp.mean(-jnp.sum(y_targ * jnp.log(y_pred), axis=-1))   
 
+
 # -------------- 3.5 Softmax loss function derivatives -----------------
 # NOTE: for softmax + multiclass cross-entropy, DO NOT use the above derivative.
 # The combined derivative wrt the pre-softmax z is simply:
 #     dC/dz = (y_pred - y_targ)   [up to the 1/n factor if using mean]
 # This is what you set dC_dz = predict - target to in the backprop code.
+
+def dC_dz_softmax(y_true, y_pred):
+    # Fused softmax/cross-entropy derivative; the final activation derivative
+    # is set to one so backpropagation_batch applies this directly to logits.
+    return (y_pred - y_true) / len(y_true)
 
