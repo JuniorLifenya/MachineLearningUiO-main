@@ -10,7 +10,7 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0,str(project_root))
 
-from part_a import sigmoid
+from function_setup2 import sigmoid
 
 # ========================================================================
 # 1 MSE functions
@@ -123,4 +123,3 @@ def dC_dz_softmax(y_true, y_pred):
     # Fused softmax/cross-entropy derivative; the final activation derivative
     # is set to one so backpropagation_batch applies this directly to logits.
     return (y_pred - y_true) / len(y_true)
-

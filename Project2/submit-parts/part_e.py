@@ -2,9 +2,6 @@ import os
 import sys
 from pathlib import Path
 
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
-
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_openml
@@ -17,10 +14,16 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 
+# Allow this script to be run from any working directory.
+module_dir = str(Path(__file__).resolve().parent)
+if module_dir not in sys.path:
+    sys.path.insert(0, module_dir)
+
 from function_setup2 import leaky_ReLU, leaky_ReLU_der
 from part_a import (
     L1_penalty_grad,
     L2_penalty_grad,
+    dC_dz_softmax,
     multiclass_cross_entropy,
     softmax,
 )
@@ -53,11 +56,6 @@ def load_mnist():
     X = mnist.data.astype(float) / 255.0
     y = mnist.target.astype(int)
     return X[:60000], y[:60000], X[60000:], y[60000:]
-
-
-def _cross_entropy_d_logits(y_true, y_pred):
-    # Softmax and cross-entropy give this derivative with respect to logits.
-    return (y_pred - y_true) / len(y_true)
 
 
 def _evaluate(X, y, layers, activation_funcs):
@@ -279,7 +277,7 @@ if __name__ == "__main__":
     batch_size = 2024
     seed = 42
     logistic_gamma = 2e-3
-    lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-8), np.log10(5e-4), 5)))
+    lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-12), np.log10(5e-6), 5)))
     gammas = np.logspace(np.log10(1e-3), np.log10(5e-2), 5)
 
     activation_funcs_nn = [leaky_ReLU, leaky_ReLU, softmax]
