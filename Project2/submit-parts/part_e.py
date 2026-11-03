@@ -273,13 +273,18 @@ if __name__ == "__main__":
         X_train, y_train, test_size=0.2, random_state=42, stratify=y_train
     )
 
-    epochs = 30
-    batch_size = 2024
+    #---------------------------------------------------------
+    # SETUP PARAMETERS FOR TRAINING AND HYPERPARAMETER SEARCH
+    #---------------------------------------------------------
+
+    epochs = 40
+    batch_size = 4048
     seed = 42
     logistic_gamma = 2e-3
-    lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-12), np.log10(5e-6), 5)))
-    gammas = np.logspace(np.log10(1e-3), np.log10(5e-2), 5)
+    lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-12), np.log10(5e-3), 4)))
+    gammas = np.logspace(np.log10(1e-3), np.log10(1e-1), 5)
 
+    hidden_sizes = (256, 128)
     activation_funcs_nn = [leaky_ReLU, leaky_ReLU, softmax]
     activation_ders_nn = [leaky_ReLU_der, leaky_ReLU_der, dI_dz]
     activation_funcs_log = [softmax]
@@ -310,7 +315,7 @@ if __name__ == "__main__":
                     y_train,
                     X_val,
                     y_val,
-                    hidden_sizes=(128, 64),
+                    hidden_sizes=hidden_sizes,
                     activation_funcs=activation_funcs_nn,
                     activation_ders=activation_ders_nn,
                     lam=float(lam),
@@ -396,8 +401,8 @@ if __name__ == "__main__":
             "gamma": logistic_gamma,
         },
         "Best neural network": {
-            "hidden_layers": "128, 64",
-            "activations": "Leaky ReLU, Leaky ReLU, Softmax",
+            "hidden_layers": ", ".join(str(size) for size in hidden_sizes),
+            "activations": ", ".join(activation_funcs_nn),
             "regularization": best_regularization,
             "lam": best_lam,
             "gamma": best_gamma,
