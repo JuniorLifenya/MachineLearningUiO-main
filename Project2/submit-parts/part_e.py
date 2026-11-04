@@ -123,13 +123,27 @@ def train_mnist(
     seed=42,
     verbose=True,
 ):
-    """Train a softmax classifier using Adam and optional L1 or L2 regularization."""
+    """Train a softmax classifier using Adam and optional L1 or L2 regularization.
+    Function takes both training and validation data, hidden layer sizes, activation 
+    functions and derivatives, penalty gradient functions along with regularization parameter (lambda), 
+    learning-rate (gamma), number of epochs, training-batch size, a seed for random
+    number generation, and a verbose true/false value that controls the amount of output 
+    printed during training. 
+
+    The model outputs the trained layers, activation functions, 
+    and a history dictionary containing the training and validation 
+    loss and accuracy for each epoch."""
+
+    """
+    Error checks:
+    """
+
     if not np.isfinite(lam) or lam < 0:
-        raise ValueError("lam must be a finite, non-negative value")
+        raise ValueError("lamda must be a finite, non-negative value")
     if not np.isfinite(gamma) or gamma <= 0:
         raise ValueError("gamma must be a finite, positive learning rate")
     if lam > 0 and penalty_grad is None:
-        raise ValueError("provide a regularization gradient when lam is positive")
+        raise ValueError("provide a regularization gradient when lamda is positive")
     if epochs < 1 or batch_size < 1:
         raise ValueError("epochs and batch_size must be positive")
 
@@ -146,6 +160,8 @@ def train_mnist(
         raise ValueError("provide one activation function for each network layer")
     if len(activation_ders) != len(layer_sizes):
         raise ValueError("provide one activation derivative for each network layer")
+
+    """Initialize weights and biases, and prepare one-hot encoded labels."""
 
     y_train_one_hot = np.eye(num_classes, dtype=np.float32)[y_train]
     y_val_one_hot = np.eye(num_classes, dtype=np.float32)[y_val]
@@ -278,11 +294,11 @@ if __name__ == "__main__":
     #---------------------------------------------------------
 
     epochs = 40
-    batch_size = 4048
+    batch_size = 2048
     seed = 42
     logistic_gamma = 2e-3
-    lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-12), np.log10(5e-3), 4)))
-    gammas = np.logspace(np.log10(1e-3), np.log10(1e-1), 5)
+    lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-10), np.log10(5e-3), 5)))
+    gammas = np.logspace(np.log10(1e-5), np.log10(1e-1), 6)
 
     hidden_sizes = (256, 128)
     activation_funcs_nn = [leaky_ReLU, leaky_ReLU, softmax]
@@ -402,7 +418,9 @@ if __name__ == "__main__":
         },
         "Best neural network": {
             "hidden_layers": ", ".join(str(size) for size in hidden_sizes),
-            "activations": ", ".join(activation_funcs_nn),
+            "activations": ", ".join(
+                activation.__name__ for activation in activation_funcs_nn
+            ),
             "regularization": best_regularization,
             "lam": best_lam,
             "gamma": best_gamma,
