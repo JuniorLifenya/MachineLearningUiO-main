@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,7 +44,7 @@ def load_mnist():
     candidates = [
         os.path.join(here, "mnist.npz"),
         os.path.join(here, "..", "BookPrograms", "chapter10_convolutional_networks", "mnist.npz"),
-        os.path.join(here, "..", "..", "BookML", "BookPrograms", "chapter10_convolutional_networks", "mnist.npz"),
+        os.path.join(here, "..", "..", "BookML", "BookPrograms", "chapter10_convolutional_networks", "mnist.npz")
     ]
     for path in candidates:
         if os.path.exists(path):
@@ -59,6 +60,7 @@ def load_mnist():
 
 
 def _evaluate(X, y, layers, activation_funcs):
+    """Evaluate the model on a dataset and return the loss and accuracy."""
     probabilities = np.asarray(predict(X, layers, activation_funcs))
     loss = float(multiclass_cross_entropy(y, probabilities))
     accuracy = float(np.mean(np.argmax(probabilities, axis=1) == np.argmax(y, axis=1)))
@@ -66,6 +68,7 @@ def _evaluate(X, y, layers, activation_funcs):
 
 
 def _classification_metrics(y_true, probabilities):
+    """Compute classification metrics for multi-class predictions."""
     labels = np.arange(10)
     y_true = np.asarray(y_true).ravel()
     probabilities = np.asarray(probabilities)
@@ -90,6 +93,7 @@ def _classification_metrics(y_true, probabilities):
 
 
 def _add_model_config_captions(fig, axes, results, epochs, batch_size):
+    """Add configuration captions to the model evaluation plots."""
     for ax, (_, metrics) in zip(axes, results.items()):
         config = metrics["configuration"]
         position = ax.get_position()
@@ -108,20 +112,9 @@ def _add_model_config_captions(fig, axes, results, epochs, batch_size):
 
 
 def train_mnist(
-    X_train,
-    y_train,
-    X_val,
-    y_val,
-    hidden_sizes,
-    activation_funcs,
-    activation_ders,
-    lam=0.0,
-    penalty_grad=None,
-    gamma=1e-3,
-    epochs=10,
-    batch_size=128,
-    seed=42,
-    verbose=True,
+    X_train, y_train, X_val, y_val, hidden_sizes, activation_funcs, activation_ders,
+    lam=0.0, penalty_grad=None, gamma=1e-3, epochs=10, batch_size=128,
+    seed=42, verbose=True,
 ):
     """Train a softmax classifier using Adam and optional L1 or L2 regularization."""
     if not np.isfinite(lam) or lam < 0:
@@ -175,13 +168,8 @@ def train_mnist(
             correct += int(np.sum(np.argmax(probabilities, axis=1) == np.argmax(y_batch, axis=1)))
 
             grads = backpropagation_batch(
-                X_batch,
-                layers,
-                activation_funcs,
-                y_batch,
-                activation_ders,
-                dC_dz_softmax,
-                forward_pass=forward_pass,
+                X_batch, layers, activation_funcs, y_batch, activation_ders,
+                dC_dz_softmax, forward_pass=forward_pass,
             )
 
             # Add the regularization derivative to weight gradients, not bias gradients.
@@ -192,10 +180,7 @@ def train_mnist(
                     for (dW, _), reg_dW in zip(grads, reg_grads)
                 ):
                     raise ValueError("regularization gradients must match each weight matrix")
-                grads = [
-                    (dW + reg_dW, db)
-                    for (dW, db), reg_dW in zip(grads, reg_grads)
-                ]
+                grads = [(dW + reg_dW, db) for (dW, db), reg_dW in zip(grads, reg_grads)]
 
             step += 1
             layers, state = adam_step(layers, grads, state, gamma, step)
@@ -239,28 +224,20 @@ def plot_hyperparameter_heatmap(lambdas, gammas, accuracy_grids, best_indices):
             vmax=max_accuracy,
         )
         images.append(image)
-        ax.set_xticks(
-            np.arange(len(lambdas)), [f"{lam:.0e}" for lam in lambdas]
-        )
-        ax.set_yticks(
-            np.arange(len(gammas)), [f"{gamma:.0e}" for gamma in gammas]
-        )
+        ax.set_xticks(np.arange(len(lambdas)), [f"{lam:.0e}" for lam in lambdas])
+        ax.set_yticks(np.arange(len(gammas)), [f"{gamma:.0e}" for gamma in gammas])
         ax.set_xlabel("Lambda (lambda)")
         ax.set_title(f"{name} regularization")
 
         for i in range(len(gammas)):
             for j in range(len(lambdas)):
                 score = accuracies[i, j]
-                ax.text(
-                    j, i, f"{score:.3f}", ha="center", va="center",
-                    color="white" if score < 0.55 else "black", fontsize=9,
-                )
+                ax.text(j, i, f"{score:.4f}", ha="center", va="center",
+                        color="white" if score < 0.55 else "black", fontsize=9)
 
         best_i, best_j = best_indices[name]
-        ax.scatter(
-            best_j, best_i, marker="s", s=1350, facecolors="none",
-            edgecolors="red", linewidths=2,
-        )
+        ax.scatter(best_j, best_i, marker="s", s=1350, facecolors="none",
+                   edgecolors="red", linewidths=2)
     axes[0].set_ylabel("Gamma (gamma)")
     fig.colorbar(images[0], ax=axes, label="Validation accuracy")
     fig.suptitle("Validation accuracy by gamma and lambda")
@@ -270,16 +247,16 @@ def plot_hyperparameter_heatmap(lambdas, gammas, accuracy_grids, best_indices):
 if __name__ == "__main__":
     X_train, y_train, X_test, y_test = load_mnist()
     X_train, X_val, y_train, y_val = train_test_split(
-        X_train, y_train, test_size=0.2, random_state=42, stratify=y_train
-    )
+        X_train, y_train, test_size=0.2, random_state=42, stratify=y_train)
 
     epochs = 30
     batch_size = 2024
     seed = 42
     logistic_gamma = 2e-3
     lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-12), np.log10(5e-6), 5)))
-    gammas = np.logspace(np.log10(1e-3), np.log10(5e-2), 5)
+    gammas = np.logspace(np.log10(1e-4), np.log10(1e-1), 6)
 
+    nn_hidden_sizes = (128, 64)
     activation_funcs_nn = [leaky_ReLU, leaky_ReLU, softmax]
     activation_ders_nn = [leaky_ReLU_der, leaky_ReLU_der, dI_dz]
     activation_funcs_log = [softmax]
@@ -297,6 +274,8 @@ if __name__ == "__main__":
     best_models = {}
 
     # Select each penalty's hyperparameters by validation accuracy only.
+    total_training_start = time.perf_counter()
+    neural_network_search_start = total_training_start
     for name, (penalty_grad, search_lambdas) in searches.items():
         best_model = None
         for lambda_index, lam in enumerate(search_lambdas):
@@ -305,27 +284,20 @@ if __name__ == "__main__":
                     f"Training neural network ({name}): "
                     f"lambda={lam:.1e}, gamma={gamma:.1e}"
                 )
+                run_start = time.perf_counter()
                 layers, activation_funcs, history = train_mnist(
-                    X_train,
-                    y_train,
-                    X_val,
-                    y_val,
-                    hidden_sizes=(128, 64),
-                    activation_funcs=activation_funcs_nn,
-                    activation_ders=activation_ders_nn,
-                    lam=float(lam),
-                    penalty_grad=penalty_grad,
-                    gamma=float(gamma),
-                    epochs=epochs,
-                    batch_size=batch_size,
-                    seed=seed,
-                    verbose=True,
+                    X_train, y_train, X_val, y_val, hidden_sizes=nn_hidden_sizes,
+                    activation_funcs=activation_funcs_nn, activation_ders=activation_ders_nn,
+                    lam=float(lam), penalty_grad=penalty_grad, gamma=float(gamma),
+                    epochs=epochs, batch_size=batch_size, seed=seed, verbose=True,
                 )
+                run_duration = time.perf_counter() - run_start
                 val_accuracy = history["val_accuracy"][-1]
                 validation_accuracies[name][gamma_index, lambda_index] = (
                     val_accuracy
                 )
                 print(f"  Final validation accuracy: {val_accuracy:.4f}")
+                print(f"  Training time: {run_duration:.2f} seconds")
 
                 if best_model is None or val_accuracy > best_model[0]:
                     best_model = (
@@ -345,6 +317,14 @@ if __name__ == "__main__":
             f"validation accuracy={best_model[0]:.4f}"
         )
 
+    neural_network_search_duration = (
+        time.perf_counter() - neural_network_search_start
+    )
+    print(
+        "Total neural-network hyperparameter search training time: "
+        f"{neural_network_search_duration:.2f} seconds"
+    )
+
     best_regularization = max(
         best_models, key=lambda name: best_models[name][0]
     )
@@ -363,23 +343,22 @@ if __name__ == "__main__":
         f"validation accuracy={best_accuracy:.4f}"
     )
 
-    plot_hyperparameter_heatmap(
-        lambdas, gammas, validation_accuracies, best_indices
-    )
+    plot_hyperparameter_heatmap(lambdas, gammas, validation_accuracies, best_indices)
 
     print("\nTraining logistic regression (no hidden layers)")
+    logistic_run_start = time.perf_counter()
     layers_log, funcs_log, _ = train_mnist(
-        X_train,
-        y_train,
-        X_val,
-        y_val,
-        hidden_sizes=(),
-        activation_funcs=activation_funcs_log,
-        activation_ders=activation_ders_log,
-        gamma=logistic_gamma,
-        epochs=epochs,
-        batch_size=batch_size,
-        seed=seed,
+        X_train, y_train, X_val, y_val, hidden_sizes=(),
+        activation_funcs=activation_funcs_log, activation_ders=activation_ders_log,
+        gamma=logistic_gamma, epochs=epochs, batch_size=batch_size, seed=seed,
+    )
+    print(
+        "Logistic regression training time: "
+        f"{time.perf_counter() - logistic_run_start:.2f} seconds"
+    )
+    print(
+        "Total training time for all model runs: "
+        f"{time.perf_counter() - total_training_start:.2f} seconds"
     )
 
     y_test_one_hot = np.eye(10, dtype=np.float32)[y_test]
@@ -396,7 +375,7 @@ if __name__ == "__main__":
             "gamma": logistic_gamma,
         },
         "Best neural network": {
-            "hidden_layers": "128, 64",
+            "hidden_layers": ", ".join(map(str, nn_hidden_sizes)),
             "activations": "Leaky ReLU, Leaky ReLU, Softmax",
             "regularization": best_regularization,
             "lam": best_lam,
