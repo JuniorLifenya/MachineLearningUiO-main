@@ -199,14 +199,16 @@ if __name__ == "__main__":
     print(f"\n{'Config':<25} {'Optimizer':<10} {'gamma':<10} {'Test MSE':<12}")
     print("-" * 60)
     for name, out_sizes in configs:
-        for opt, gamma in [("sgd", 1e-2), ("rmsprop", 1e-3), ("adam", 1e-3)]:
-            layers = create_layers(1, out_sizes, seed=42)
-            acts = actv_funcs[:len(out_sizes)]
-            ders = actv_ders[:len(out_sizes)]
-            layers = train_network(
-                X_tr, y_tr, layers, acts, ders,
-                optimizer=opt, gamma=gamma,
-                n_epochs=500, batch_size=32,
-            )
-            test_mse = C_mse(y_te, predict(X_te, layers, acts))
-            print(f"{name:<25} {opt:<10} {gamma:<10.0e} {test_mse:<12.4e}")
+        gammas = [1e-2, 1e-3, 1e-4] if len(out_sizes) == 2 else [1e-3, 1e-4, 1e-5]
+        for opt in ["sgd", "rmsprop", "adam"]:
+            for gamma in gammas:
+                layers = create_layers(1, out_sizes, seed=42)
+                acts = actv_funcs[:len(out_sizes)]
+                ders = actv_ders[:len(out_sizes)]
+                layers = train_network(
+                    X_tr, y_tr, layers, acts, ders,
+                    optimizer=opt, gamma=gamma,
+                    n_epochs=500, batch_size=32,
+                )
+                test_mse = C_mse(y_te, predict(X_te, layers, acts))
+                print(f"{name:<25} {opt:<10} {gamma:<10.0e} {test_mse:<12.4e}")
