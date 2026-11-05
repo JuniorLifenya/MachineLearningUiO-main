@@ -12,13 +12,19 @@ from data_aquisition import design_matrix
 from part_a import C_mse, dC_dy_pred_batch
 
 
-def create_layers(network_input_size, layer_output_sizes, seed=None):
+def create_layers(network_input_size, layer_output_sizes, seed=None, init = "xavier"):
     rng = np.random.default_rng(seed)
     layers = []
     i_size = network_input_size
     for layer_output_size in layer_output_sizes:
-        W = rng.normal(0.0, np.sqrt(1.0 / i_size),
-                       size=(i_size, layer_output_size))
+        if init == "xavier":
+            scale = np.sqrt(1.0 / i_size)
+        elif init == "he":
+            scale = np.sqrt(2.0 / i_size)
+        else:
+            W = rng.normal(0.0, 0.01, size=(i_size, layer_output_size))
+
+            size=(i_size, layer_output_size))
         b = np.zeros(layer_output_size)
         layers.append((W, b))
         i_size = layer_output_size
