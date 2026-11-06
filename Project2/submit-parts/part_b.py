@@ -24,7 +24,7 @@ def create_layers(network_input_size, layer_output_sizes, seed=None, init = "xav
         else:
             W = rng.normal(0.0, 0.01, size=(i_size, layer_output_size))
 
-            size=(i_size, layer_output_size))
+            size=(i_size, layer_output_size)
         b = np.zeros(layer_output_size)
         layers.append((W, b))
         i_size = layer_output_size
