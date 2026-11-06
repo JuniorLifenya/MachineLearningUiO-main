@@ -207,14 +207,12 @@ if __name__ == "__main__":
     for name, out_sizes in configs:
         gammas = [1e-2, 1e-3, 1e-4] if len(out_sizes) == 2 else [1e-3, 1e-4, 1e-5]
         for opt in ["sgd", "rmsprop", "adam"]:
-            for gamma in gammas:
-                layers = create_layers(1, out_sizes, seed=42)
-                acts = actv_funcs[:len(out_sizes)]
-                ders = actv_ders[:len(out_sizes)]
-                layers = train_network(
-                    X_tr, y_tr, layers, acts, ders,
-                    optimizer=opt, gamma=gamma,
-                    n_epochs=500, batch_size=32,
-                )
-                test_mse = C_mse(y_te, predict(X_te, layers, acts))
-                print(f"{name:<25} {opt:<10} {gamma:<10.0e} {test_mse:<12.4e}")
+            for gamma in [1e-4, 1e-3, 1e-2, 1e-1]:
+                layers = create_layers(1, [50, 50, 1], seed=42)
+                layers = train_network(X_tr, y_tr, layers,
+                                    [sigmoid]*2 + [I_identity],
+                                    [sigmoid_der]*2 + [dI_dz],
+                                    optimizer=opt, gamma=gamma,
+                                    n_epochs=500, batch_size=32)
+                mse = C_mse(y_te, predict(X_te, layers, [sigmoid]*2 + [I_identity]))
+                print(f"{opt:>8} γ={gamma:.0e} test MSE = {mse:.4e}")

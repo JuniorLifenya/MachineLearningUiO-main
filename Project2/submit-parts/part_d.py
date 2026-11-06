@@ -106,10 +106,12 @@ if __name__ == "__main__":
     seed = 42
 
     mse_grids = {}
+    arch_best = {} # {name: (gamma_idx, lambda_idx, val_mse, gamma, lam, arch_str)}
     for name, (penalty_grad, lambdas) in searches.items():
-        best = None
         mse_grid = np.full((len(gammas), len(lambdas)), np.inf)
-        for architecture in ([20, 1], [20, 20, 1]):
+        arch_best[name] = None
+
+        for arch_name, architecture in [("1x20",[20,1]), ("2x20",[20,20,1]),("3x20",[20,20,20,1])]:
             acts = [sigmoid] * (len(architecture) - 1) + [I_identity]
             for gamma_index, gamma in enumerate(gammas):
                 for lambda_index, lam in enumerate(lambdas):
@@ -127,13 +129,18 @@ if __name__ == "__main__":
                     val_mse = C_mse(
                         y[ids_val].reshape(-1, 1), predict(X_val, layers, acts)
                     )
+                    # min-heatmap still records the best of the two architectures
                     mse_grid[gamma_index, lambda_index] = min(
                         mse_grid[gamma_index, lambda_index], val_mse
                     )
-                    if best is None or val_mse < best[0]:
-                        best = (val_mse, architecture, gamma, lam, layers, acts)
+                    # per-architecture best for the scatter
+                    if (arch_name not in arch_best[name]
+                            or val_mse < arch_best[name][arch_name][2]):
+                        arch_best[name][arch_name] = (
+                            gamma_index, lambda_index, val_mse, gamma, lam
+                        )
         mse_grids[name] = mse_grid
-        val_mse, architecture, gamma, lam, layers, acts = best
+        val_mse, architecture, gamma, lam, layers, acts = arch_best[name]
         test_mse = C_mse(
             y[ids_test].reshape(-1, 1), predict(X_test, layers, acts)
         )
@@ -151,22 +158,41 @@ if __name__ == "__main__":
     # Creating heatmap plot for hyperparameters
 
     fig, axes = plt.subplots(
-        1, len(searches), figsize=(12, 5), sharey=True, constrained_layout=True
+        1, len(searches), figsize=(13, 6), sharey=True, constrained_layout=True
     )
     vmin = min(grid.min() for grid in mse_grids.values())
     vmax = max(grid.max() for grid in mse_grids.values())
+
+    markers = {"1×20": ("s", "red"), "2×20/20": ("D", "white")}
+
     for ax, (name, (_, lambdas)) in zip(axes, searches.items()):
         image = ax.imshow(
             mse_grids[name], origin="lower", aspect="auto", cmap="viridis",
             vmin=vmin, vmax=vmax,
         )
-        ax.set_title(f"{name} regularization")
-        ax.set_xlabel("Lambda (λ)")
+        ax.set_title(f"{name} regularization (best over architectures)")
+        ax.set_xlabel(r"$\lambda$")
         ax.set_xticks(np.arange(len(lambdas)))
-        ax.set_xticklabels([f"{lam:g}" for lam in lambdas], rotation=45)
+        ax.set_xticklabels([f"{lam:.0e}" for lam in lambdas], rotation=45, fontsize=8)
         ax.set_yticks(np.arange(len(gammas)))
-        ax.set_yticklabels([f"{gamma:g}" for gamma in gammas])
-    axes[0].set_ylabel("Gamma (γ)")
-    fig.colorbar(image, ax=axes, label="Validation MSE")
-    fig.suptitle("Validation MSE by gamma and lambda")
+        ax.set_yticklabels([f"{gamma:.0e}" for gamma in gammas], fontsize=8)
+
+        # Scatter marks: one per architecture, showing WHICH cell that arch prefers.
+        for arch_name, (gi, li, vm, gm, lm) in arch_best[name].items():
+            mk, col = markers[arch_name]
+            ax.scatter(li, gi, marker=mk, s=180, facecolors="none",
+                       edgecolors=col, linewidths=2.2,
+                       label=f"{arch_name} best (γ={gm:.0e}, λ={lm:.0e}, val={vm:.3e})")
+
+        ax.legend(loc="lower left", fontsize=7, framealpha=0.9)
+
+    axes[0].set_ylabel(r"Learning rate $\gamma$")
+    fig.colorbar(image, ax=axes, label="Validation MSE (min over architectures)")
+    fig.suptitle(r"Validation MSE over $(\gamma, \lambda)$ with per-architecture optimum marked")
     plt.show()
+
+    # Print for the report table
+    for name, dict_by_arch in arch_best.items():
+        print(f"\n{name}: per-architecture optimum")
+        for arch_name, (gi, li, vm, gm, lm) in dict_by_arch.items():
+            print(f"  {arch_name}: γ={gm:.3e}, λ={lm:.3e}, val MSE={vm:.4e}")
