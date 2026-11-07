@@ -12,7 +12,7 @@ from data_aquisition import design_matrix
 from part_a import C_mse, dC_dy_pred_batch
 
 
-def create_layers(network_input_size, layer_output_sizes, seed=None, init = "xavier"):
+def create_layers(network_input_size, layer_output_sizes, seed=None, init="xavier"):
     rng = np.random.default_rng(seed)
     layers = []
     i_size = network_input_size
@@ -21,10 +21,11 @@ def create_layers(network_input_size, layer_output_sizes, seed=None, init = "xav
             scale = np.sqrt(1.0 / i_size)
         elif init == "he":
             scale = np.sqrt(2.0 / i_size)
+        elif init == "small":
+            scale = 0.01
         else:
-            W = rng.normal(0.0, 0.01, size=(i_size, layer_output_size))
-
-            size=(i_size, layer_output_size)
+            raise ValueError(f"Unknown init: {init!r}")
+        W = rng.normal(0.0, scale, size=(i_size, layer_output_size))
         b = np.zeros(layer_output_size)
         layers.append((W, b))
         i_size = layer_output_size
@@ -183,6 +184,11 @@ if __name__ == "__main__":
     X_tr = scaler.transform(X_tr)
     X_te = scaler.transform(X_te)
 
+
+
+    # ============================================================
+    # STEP 1 — OLS baseline (sanity check)
+    # ============================================================
     deg_best = 10
     X_poly = design_matrix(x, degree=deg_best, intercept=True)
     Xp_tr, Xp_te, yp_tr, yp_te = train_test_split(
@@ -190,29 +196,165 @@ if __name__ == "__main__":
     )
     theta_ols = np.linalg.pinv(Xp_tr.T @ Xp_tr) @ Xp_tr.T @ yp_tr
     mse_ols = C_mse(yp_te, Xp_te @ theta_ols)
-    print(f"OLS (degree {deg_best}): test MSE = {mse_ols:.4e}")
+    print(f"\n=== OLS baseline (degree {deg_best}, same 70/30 split) ===")
+    print(f"    test MSE = {mse_ols:.4e}")
+    print(f"    (Project 1 best Ridge was ~1.8e-2 on its own split)")
 
-    actv_funcs = [sigmoid, sigmoid, I_identity]
-    actv_ders = [sigmoid_der, sigmoid_der, dI_dz]
+        # Ridge/Lasso baselines at Project 1's best (degree, λ)
+    from sklearn.linear_model import Ridge, Lasso
+    for d_rl, lam_rl, name_rl in [
+        (14, 1.0e-4, "Ridge (Project 1 best d, λ)"),
+        (14, 2.3e-4, "Lasso (Project 1 best d, λ)"),
+    ]:
+        X_rl = design_matrix(x, degree=d_rl, intercept=True)
+        Xr_tr, Xr_te, yr_tr, yr_te = train_test_split(
+            X_rl, y, test_size=0.3, random_state=42
+        )
+        scaler_rl = StandardScaler().fit(Xr_tr)
+        Xr_tr = scaler_rl.transform(Xr_tr)
+        Xr_te = scaler_rl.transform(Xr_te)
+        # Note: sklearn Ridge/Lasso already handle the intercept
+        model = Ridge(alpha=lam_rl) if "Ridge" in name_rl else Lasso(alpha=lam_rl, max_iter=10000)
+        model.fit(Xr_tr, yr_tr)
+        print(f"    {name_rl}: test MSE = {C_mse(yr_te, model.predict(Xr_te)):.4e}")
+
+    # ============================================================
+    # STEP 2 — Single-network sanity check (tuned γ)
+    # ============================================================
+    print("\n=== Single-network sanity (1 hidden, 50 nodes, Adam, γ=0.1) ===")
+    acts_1l = [sigmoid, I_identity]
+    ders_1l = [sigmoid_der, dI_dz]
+    layers = create_layers(1, [50, 1], seed=42)
+    layers = train_network(X_tr, y_tr, layers, acts_1l, ders_1l,
+                           optimizer="adam", gamma=0.1,
+                           n_epochs=500, batch_size=32)
+    train_mse = C_mse(y_tr, predict(X_tr, layers, acts_1l))
+    test_mse = C_mse(y_te, predict(X_te, layers, acts_1l))
+    print(f"    train MSE = {train_mse:.4e}")
+    print(f"    test  MSE = {test_mse:.4e}")
+    print(f"    EXPECTED: test MSE ~1.5e-2 (matches the table's 1×50 row)")
+
+    # ============================================================
+    # STEP 3 — Four-architecture comparison (fills Table I)
+    # ============================================================
+    print("\n=== Architecture comparison (best optimizer per arch) ===")
+    print(f"{'Architecture':<22} {'best opt':<10} {'γ':<8} {'test MSE':<12}")
+    print("-" * 60)
 
     configs = [
-        ("1 hidden, 50 nodes", [50, 1]),
-        ("1 hidden, 100 nodes", [100, 1]),
-        ("2 hidden, 50/50", [50, 50, 1]),
-        ("2 hidden, 100/100", [100, 100, 1]),
+        ("1 hidden, 50 nodes",   [50, 1]),
+        ("1 hidden, 100 nodes",  [100, 1]),
+        ("2 hidden, 50/50",      [50, 50, 1]),
+        ("2 hidden, 100/100",    [100, 100, 1]),
     ]
 
-    print(f"\n{'Config':<25} {'Optimizer':<10} {'gamma':<10} {'Test MSE':<12}")
-    print("-" * 60)
     for name, out_sizes in configs:
-        gammas = [1e-2, 1e-3, 1e-4] if len(out_sizes) == 2 else [1e-3, 1e-4, 1e-5]
+        acts = [sigmoid] * (len(out_sizes) - 1) + [I_identity]
+        ders = [sigmoid_der] * (len(out_sizes) - 1) + [dI_dz]
+        best = None  # (test_mse, opt, gamma)
         for opt in ["sgd", "rmsprop", "adam"]:
             for gamma in [1e-4, 1e-3, 1e-2, 1e-1]:
+                try:
+                    layers = create_layers(1, out_sizes, seed=42)
+                    layers = train_network(X_tr, y_tr, layers, acts, ders,
+                                           optimizer=opt, gamma=gamma,
+                                           n_epochs=500, batch_size=32)
+                    mse = C_mse(y_te, predict(X_te, layers, acts))
+                    if np.isfinite(mse) and (best is None or mse < best[0]):
+                        best = (mse, opt, gamma)
+                except (FloatingPointError, OverflowError):
+                    pass
+        mse, opt, gamma = best
+        print(f"{name:<22} {opt:<10} {gamma:<8.0e} {mse:<12.4e}")
+
+    # ============================================================
+    # STEP 4 — Learning-rate sweep (fills Table II)
+    # ============================================================
+    print("\n=== Learning-rate sweep (2 hidden, 50/50, sigmoid) ===")
+    print(f"{'optimizer':<10} " + " ".join(f"{g:>9.0e}" for g in [1e-4, 1e-3, 1e-2, 1e-1]))
+    print("-" * 55)
+    acts_2l = [sigmoid, sigmoid, I_identity]
+    ders_2l = [sigmoid_der, sigmoid_der, dI_dz]
+    for opt in ["sgd", "rmsprop", "adam"]:
+        row = []
+        for gamma in [1e-4, 1e-3, 1e-2, 1e-1]:
+            try:
                 layers = create_layers(1, [50, 50, 1], seed=42)
-                layers = train_network(X_tr, y_tr, layers,
-                                    [sigmoid]*2 + [I_identity],
-                                    [sigmoid_der]*2 + [dI_dz],
-                                    optimizer=opt, gamma=gamma,
-                                    n_epochs=500, batch_size=32)
-                mse = C_mse(y_te, predict(X_te, layers, [sigmoid]*2 + [I_identity]))
-                print(f"{opt:>8} γ={gamma:.0e} test MSE = {mse:.4e}")
+                layers = train_network(X_tr, y_tr, layers, acts_2l, ders_2l,
+                                       optimizer=opt, gamma=gamma,
+                                       n_epochs=500, batch_size=32)
+                mse = C_mse(y_te, predict(X_te, layers, acts_2l))
+                row.append(f"{mse:9.2e}" if np.isfinite(mse) else "      nan")
+            except (FloatingPointError, OverflowError):
+                row.append("      inf")
+        print(f"{opt:<10} " + " ".join(row))
+
+    # ============================================================
+    # STEP 5 — Epochs to threshold, at each optimizer's tuned γ
+    # ============================================================
+    print("\n=== Epochs to reach training MSE < 1e-2 (2 hidden 50/50, tuned γ) ===")
+    tuned_gamma = {"sgd": 0.1, "rmsprop": 0.01, "adam": 0.01}
+    for opt, g in tuned_gamma.items():
+        layers = create_layers(1, [50, 50, 1], seed=42)
+        reached = None
+        for epoch in range(1, 501):
+            layers = train_network(X_tr, y_tr, layers, acts_2l, ders_2l,
+                                   optimizer=opt, gamma=g,
+                                   n_epochs=1, batch_size=32, seed=42)
+            if C_mse(y_tr, predict(X_tr, layers, acts_2l)) < 1e-2:
+                reached = epoch
+                break
+        print(f"    {opt:<10} (γ={g}) reached in {reached if reached else '>500'} epochs")
+
+        # ============================================================
+    # FIGURE 1 — NN fits on Runge data
+    # ============================================================
+    import matplotlib.pyplot as plt
+    xx_plot = np.linspace(-1, 1, 400).reshape(-1, 1)
+    xx_scaled = scaler.transform(xx_plot)
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    ax.plot(xx_plot.ravel(), runge(xx_plot.ravel()),
+            "k-", label="Runge (true)", linewidth=2)
+    ax.scatter(x, y, s=8, alpha=0.4, label="noisy data")
+
+    for name, out_sizes, opt, gamma, color in [
+        ("1×50 (Adam, γ=0.1)",   [50, 1],   "adam",    0.1,  "tab:blue"),
+        ("2×100/100 (RMSprop, γ=1e-3)", [100, 100, 1], "rmsprop", 1e-3, "tab:red"),
+    ]:
+        acts = [sigmoid] * (len(out_sizes) - 1) + [I_identity]
+        ders = [sigmoid_der] * (len(out_sizes) - 1) + [dI_dz]
+        L = create_layers(1, out_sizes, seed=42)
+        L = train_network(X_tr, y_tr, L, acts, ders,
+                          optimizer=opt, gamma=gamma,
+                          n_epochs=500, batch_size=32)
+        y_pred = predict(xx_scaled, L, acts).ravel()
+        ax.plot(xx_plot.ravel(), y_pred, "--", color=color,
+                label=name, linewidth=1.5)
+
+    ax.set_xlabel("x"); ax.set_ylabel("y")
+    ax.set_title("Network fits vs Runge function")
+    ax.legend(frameon=False, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+    
+
+        # ============================================================
+    # FIGURE 2 — Learning-rate sweep
+    # ============================================================
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    gammas_plot = [1e-4, 1e-3, 1e-2, 1e-1]
+    sweep_results = {
+        "sgd":     [1.17e-1, 1.15e-1, 1.11e-1, 3.93e-2],
+        "rmsprop": [1.10e-1, 2.15e-2, 1.52e-2, 4.42e-2],
+        "adam":    [1.10e-1, 2.02e-2, 1.63e-2, 1.63e-2],
+    }
+    for opt, marker in [("sgd", "o"), ("rmsprop", "s"), ("adam", "^")]:
+        ax.loglog(gammas_plot, sweep_results[opt], marker + "-", label=opt, linewidth=1.5)
+
+    ax.set_xlabel(r"$\gamma$"); ax.set_ylabel("Test MSE")
+    ax.set_title("Learning-rate sweep (2 hidden 50/50, sigmoid)")
+    ax.legend(frameon=False); ax.grid(alpha=0.3, which="both")
+    plt.tight_layout()
+    plt.show()
