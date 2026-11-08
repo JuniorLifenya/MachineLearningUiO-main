@@ -132,7 +132,7 @@ def adam_step(layers, grads, state, gamma, t,
 
 def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
                   optimizer="adam", gamma=1e-3, n_epochs=500,
-                  batch_size=32, seed=42):
+                  batch_size=32, seed=42,return_history=True):
     n = len(y_train)
     rng = np.random.default_rng(seed)
 
@@ -145,6 +145,7 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
         state = None
 
     t = 0
+    history = []
     for epoch in range(n_epochs):
         idx = rng.permutation(n)
         for start in range(0, n, batch_size):
@@ -160,8 +161,22 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
             elif optimizer == "adam":
                 t += 1
                 layers, state = adam_step(layers, grads, state, gamma, t)
+        if return_history:
+            train_mse = C_mse(y_train, predict(X_train, layers, actv_funcs))
+            history.append(train_mse)
+    if return_history:
+        return layers, history
 
     return layers
+
+for opt, g in tuned_gamma.items():
+    layrs = create_layers(1, [50, 50, 1], seed=42)
+    _, history = train_network(X_tr, y_tr, layrs, acts_2l, ders_2l,
+                               optimizer=opt, gamma=g,
+                               n_epochs=500, batch_size=32, return_history=True)
+    below = np.where(np.array(history) < 1e-2)[0]
+    reached = int (below[0]) + 1 if len(below) > 0 else None
+    print(f"    {opt:<10} (γ={g}) reached in {reached if reached else '>500'} epochs")
 
 
 def predict(X, layers, actv_funcs):
