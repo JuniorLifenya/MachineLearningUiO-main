@@ -132,7 +132,7 @@ def adam_step(layers, grads, state, gamma, t,
 
 def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
                   optimizer="adam", gamma=1e-3, n_epochs=500,
-                  batch_size=32, seed=42,return_history=True):
+                  batch_size=32, seed=42, return_history=False):
     n = len(y_train)
     rng = np.random.default_rng(seed)
 
@@ -144,8 +144,8 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
     else:
         state = None
 
+    history = [] if return_history else None
     t = 0
-    history = []
     for epoch in range(n_epochs):
         idx = rng.permutation(n)
         for start in range(0, n, batch_size):
@@ -162,21 +162,13 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
                 t += 1
                 layers, state = adam_step(layers, grads, state, gamma, t)
         if return_history:
-            train_mse = C_mse(y_train, predict(X_train, layers, actv_funcs))
-            history.append(train_mse)
+            history.append(C_mse(y_train, predict(X_train, layers, actv_funcs)))
+
     if return_history:
         return layers, history
-
     return layers
+        
 
-for opt, g in tuned_gamma.items():
-    layrs = create_layers(1, [50, 50, 1], seed=42)
-    _, history = train_network(X_tr, y_tr, layrs, acts_2l, ders_2l,
-                               optimizer=opt, gamma=g,
-                               n_epochs=500, batch_size=32, return_history=True)
-    below = np.where(np.array(history) < 1e-2)[0]
-    reached = int (below[0]) + 1 if len(below) > 0 else None
-    print(f"    {opt:<10} (γ={g}) reached in {reached if reached else '>500'} epochs")
 
 
 def predict(X, layers, actv_funcs):
@@ -185,6 +177,7 @@ def predict(X, layers, actv_funcs):
 
 
 if __name__ == "__main__":
+    
     rng = np.random.default_rng(2026)
     n = 100
     sigma = 0.1
@@ -250,7 +243,29 @@ if __name__ == "__main__":
     print(f"    EXPECTED: test MSE ~1.5e-2 (matches the table's 1×50 row)")
 
     # ============================================================
-    # STEP 3 — Four-architecture comparison (fills Table I)
+    # FIGURE 3 — Training-loss curves for the three optimizers
+    # ============================================================
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    for opt, g, color in [("sgd", 0.1, "tab:blue"),
+                          ("rmsprop", 0.01, "tab:orange"),
+                          ("adam", 0.01, "tab:green")]:
+        layers = create_layers(1, [50, 50, 1], seed=42)
+        _, hist = train_network(X_tr, y_tr, layers, acts_2l, ders_2l,
+                                optimizer=opt, gamma=g,
+                                n_epochs=500, batch_size=32,
+                                return_history=True)
+        ax.semilogy(range(1, 501), hist, color=color,
+                    label=f"{opt.upper()} (γ={g})")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Train MSE")
+    ax.set_title("Training loss on Runge (2 hidden, 50/50, sigmoid)")
+    ax.legend(frameon=False); ax.grid(alpha=0.3, which="both")
+    plt.tight_layout()
+    plt.savefig("figures/part_b_train_loss.png", dpi=150, bbox_inches="tight")
+    plt.show()
+
+    # ============================================================
+    # STEP 4 Four-architecture comparison (fills Table I)
     # ============================================================
     print("\n=== Architecture comparison (best optimizer per arch) ===")
     print(f"{'Architecture':<22} {'best opt':<10} {'γ':<8} {'test MSE':<12}")
@@ -283,7 +298,7 @@ if __name__ == "__main__":
         print(f"{name:<22} {opt:<10} {gamma:<8.0e} {mse:<12.4e}")
 
     # ============================================================
-    # STEP 4 — Learning-rate sweep (fills Table II)
+    # STEP 5 Learning-rate sweep (fills Table II)
     # ============================================================
     print("\n=== Learning-rate sweep (2 hidden, 50/50, sigmoid) ===")
     print(f"{'optimizer':<10} " + " ".join(f"{g:>9.0e}" for g in [1e-4, 1e-3, 1e-2, 1e-1]))
@@ -305,24 +320,22 @@ if __name__ == "__main__":
         print(f"{opt:<10} " + " ".join(row))
 
     # ============================================================
-    # STEP 5 — Epochs to threshold, at each optimizer's tuned γ
+    # STEP 6 Epochs to threshold, at each optimizer's tuned γ
     # ============================================================
     print("\n=== Epochs to reach training MSE < 1e-2 (2 hidden 50/50, tuned γ) ===")
     tuned_gamma = {"sgd": 0.1, "rmsprop": 0.01, "adam": 0.01}
     for opt, g in tuned_gamma.items():
-        layers = create_layers(1, [50, 50, 1], seed=42)
-        reached = None
-        for epoch in range(1, 501):
-            layers = train_network(X_tr, y_tr, layers, acts_2l, ders_2l,
-                                   optimizer=opt, gamma=g,
-                                   n_epochs=1, batch_size=32, seed=42)
-            if C_mse(y_tr, predict(X_tr, layers, acts_2l)) < 1e-2:
-                reached = epoch
-                break
+        L = create_layers(1, [50, 50, 1], seed=42)
+        _, hist = train_network(X_tr, y_tr, L, acts_2l, ders_2l,
+                                optimizer=opt, gamma=g,
+                                n_epochs=500, batch_size=32,
+                                return_history=True)
+        below = np.where(np.array(hist) < 1e-2)[0]
+        reached = int(below[0]) + 1 if len(below) > 0 else None
         print(f"    {opt:<10} (γ={g}) reached in {reached if reached else '>500'} epochs")
 
-        # ============================================================
-    # FIGURE 1 — NN fits on Runge data
+    # ============================================================
+    # FIGURE NN fits on Runge data
     # ============================================================
     import matplotlib.pyplot as plt
     xx_plot = np.linspace(-1, 1, 400).reshape(-1, 1)
@@ -356,7 +369,7 @@ if __name__ == "__main__":
     
 
     # ============================================================
-    # FIGURE 2 — Learning-rate sweep
+    # FIGURE Learning-rate sweep
     # ============================================================
     fig, ax = plt.subplots(figsize=(7, 4.5))
     gammas_plot = [1e-4, 1e-3, 1e-2, 1e-1]
@@ -373,3 +386,4 @@ if __name__ == "__main__":
     ax.legend(frameon=False); ax.grid(alpha=0.3, which="both")
     plt.tight_layout()
     plt.show()
+    
