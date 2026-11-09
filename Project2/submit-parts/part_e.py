@@ -265,14 +265,14 @@ if __name__ == "__main__":
     X_train, X_val, y_train, y_val = train_test_split(
         X_train, y_train, test_size=0.2, random_state=42, stratify=y_train)
 
-    epochs = 30
-    batch_size = 2024
+    epochs = 5
+    batch_size = 64
     seed = 42
     logistic_gamma = 2e-3
     lambdas = np.concatenate(([0.0], np.logspace(np.log10(1e-12), np.log10(5e-6), 5)))
     gammas = np.logspace(np.log10(1e-4), np.log10(1e-1), 6)
 
-    nn_hidden_sizes = (128, 64)
+    nn_hidden_sizes = (512, 128)
     activation_funcs_nn = [leaky_ReLU, leaky_ReLU, softmax]
     activation_ders_nn = [leaky_ReLU_der, leaky_ReLU_der, dI_dz]
     activation_funcs_log = [softmax]

@@ -169,15 +169,13 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
     return layers
         
 
-
-
 def predict(X, layers, actv_funcs):
     _, _, a = feed_forward_saver_batch(X, layers, actv_funcs)
     return a
 
 
 if __name__ == "__main__":
-    
+
     rng = np.random.default_rng(2026)
     n = 100
     sigma = 0.1
@@ -245,6 +243,8 @@ if __name__ == "__main__":
     # ============================================================
     # FIGURE 3 — Training-loss curves for the three optimizers
     # ============================================================
+    acts_2l = [sigmoid, sigmoid, I_identity]
+    ders_2l = [sigmoid_der, sigmoid_der, dI_dz]
     fig, ax = plt.subplots(figsize=(7, 4.5))
     for opt, g, color in [("sgd", 0.1, "tab:blue"),
                           ("rmsprop", 0.01, "tab:orange"),
@@ -261,7 +261,6 @@ if __name__ == "__main__":
     ax.set_title("Training loss on Runge (2 hidden, 50/50, sigmoid)")
     ax.legend(frameon=False); ax.grid(alpha=0.3, which="both")
     plt.tight_layout()
-    plt.savefig("figures/part_b_train_loss.png", dpi=150, bbox_inches="tight")
     plt.show()
 
     # ============================================================
@@ -303,8 +302,6 @@ if __name__ == "__main__":
     print("\n=== Learning-rate sweep (2 hidden, 50/50, sigmoid) ===")
     print(f"{'optimizer':<10} " + " ".join(f"{g:>9.0e}" for g in [1e-4, 1e-3, 1e-2, 1e-1]))
     print("-" * 55)
-    acts_2l = [sigmoid, sigmoid, I_identity]
-    ders_2l = [sigmoid_der, sigmoid_der, dI_dz]
     for opt in ["sgd", "rmsprop", "adam"]:
         row = []
         for gamma in [1e-4, 1e-3, 1e-2, 1e-1]:
