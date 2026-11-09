@@ -14,7 +14,8 @@ from part_b import (
 
 
 def train_regularized(
-    X, y, layers, lam, penalty_grad, gamma, epochs=300, batch_size=32, seed=42
+    X_train, y_train, layers, lam, penalty_grad, gamma,
+    epochs=300, batch_size=32, seed=42,
 ):
     """Train a sigmoid network for regression with L1 or L2 weight regularization."""
     rng = np.random.default_rng(seed)
@@ -22,16 +23,17 @@ def train_regularized(
         (np.zeros_like(W), np.zeros_like(W), np.zeros_like(b), np.zeros_like(b))
         for W, b in layers
     ]
-    acts = [sigmoid] * (len(layers) - 1) + [I_identity]
-    ders = [sigmoid_der] * (len(layers) - 1) + [dI_dz]
+    activation_funcs = [sigmoid] * (len(layers) - 1) + [I_identity]
+    activation_ders = [sigmoid_der] * (len(layers) - 1) + [dI_dz]
     t = 0
 
-    for _ in range(epochs):
-        order = rng.permutation(len(y))
-        for start in range(0, len(y), batch_size):
-            ids = order[start:start + batch_size]
+    for epoch in range(epochs):
+        order = rng.permutation(len(y_train))
+        for start in range(0, len(y_train), batch_size):
+            indices = order[start:start + batch_size]
             grads = backpropagation_batch(
-                X[ids], layers, acts, y[ids], ders, dC_dy_pred_batch
+                X_train[indices], layers, activation_funcs, y_train[indices],
+                activation_ders, dC_dy_pred_batch,
             )
             reg_grads = penalty_grad([W for W, _ in layers], lam)
             grads = [
@@ -40,7 +42,7 @@ def train_regularized(
             ]
             t += 1
             layers, state = adam_step(layers, grads, state, gamma, t)
-    return layers, acts
+    return layers, activation_funcs
 
 
 def best_polynomial_baseline(x, y, train_ids, val_ids, test_ids, model_type):

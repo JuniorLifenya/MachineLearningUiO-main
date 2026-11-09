@@ -169,16 +169,6 @@ def train_network(X_train, y_train, layers, actv_funcs, actv_ders,
 
     return layers
 
-for opt, g in tuned_gamma.items():
-    layrs = create_layers(1, [50, 50, 1], seed=42)
-    _, history = train_network(X_tr, y_tr, layrs, acts_2l, ders_2l,
-                               optimizer=opt, gamma=g,
-                               n_epochs=500, batch_size=32, return_history=True)
-    below = np.where(np.array(history) < 1e-2)[0]
-    reached = int (below[0]) + 1 if len(below) > 0 else None
-    print(f"    {opt:<10} (γ={g}) reached in {reached if reached else '>500'} epochs")
-
-
 def predict(X, layers, actv_funcs):
     _, _, a = feed_forward_saver_batch(X, layers, actv_funcs)
     return a
