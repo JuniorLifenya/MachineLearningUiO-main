@@ -163,13 +163,12 @@ def kfold_indices(n, k=5, seed=42):
 
 
 def cv_score(X_raw, y, out_sizes, acts, ders, optimizer, gamma,
-             n_epochs=500, batch_size=32, k=5, seed=42):
+             n_epochs=500, batch_size=32, k=5, seed=42, init="xavier"):   # ← new
     fold_mses = []
     for tr_idx, val_idx in kfold_indices(len(y), k, seed):
         sc = StandardScaler().fit(X_raw[tr_idx])
-        L = create_layers(X_raw.shape[1], out_sizes, seed=seed)
-        L = train_network(sc.transform(X_raw[tr_idx]), y[tr_idx],
-                          L, acts, ders,
+        L = create_layers(X_raw.shape[1], out_sizes, seed=seed, init=init)  # ← new
+        L = train_network(sc.transform(X_raw[tr_idx]), y[tr_idx], L, acts, ders,
                           optimizer=optimizer, gamma=gamma,
                           n_epochs=n_epochs, batch_size=batch_size)
         fold_mses.append(
@@ -181,7 +180,8 @@ def cv_score(X_raw, y, out_sizes, acts, ders, optimizer, gamma,
 def select_hyperparams_cv(X_raw, y, out_sizes, acts, ders,
                           optimizers=("sgd", "rmsprop", "adam"),
                           gammas=(1e-4, 1e-3, 1e-2, 1e-1),
-                          n_epochs=500, batch_size=32, k=5, seed=42):
+                          n_epochs=500, batch_size=32, k=5, seed=42,
+                          init="xavier"):                                # ← new
     results = []
     for opt in optimizers:
         for g in gammas:
@@ -189,7 +189,7 @@ def select_hyperparams_cv(X_raw, y, out_sizes, acts, ders,
                 m, s = cv_score(X_raw, y, out_sizes, acts, ders,
                                 optimizer=opt, gamma=g,
                                 n_epochs=n_epochs, batch_size=batch_size,
-                                k=k, seed=seed)
+                                k=k, seed=seed, init=init)              # ← new
             except (FloatingPointError, OverflowError):
                 m, s = np.inf, np.nan
             results.append((m, s, opt, g))
@@ -198,14 +198,13 @@ def select_hyperparams_cv(X_raw, y, out_sizes, acts, ders,
 
 
 def fit_final(X_raw, y, out_sizes, acts, ders, opt, gamma,
-              n_epochs=500, batch_size=32, seed=42):
+              n_epochs=500, batch_size=32, seed=42, init="xavier"):    # ← new
     sc = StandardScaler().fit(X_raw)
-    L = create_layers(X_raw.shape[1], out_sizes, seed=seed)
+    L = create_layers(X_raw.shape[1], out_sizes, seed=seed, init=init)  # ← new
     L = train_network(sc.transform(X_raw), y, L, acts, ders,
                       optimizer=opt, gamma=gamma,
                       n_epochs=n_epochs, batch_size=batch_size)
     return L, sc
-
 
 # ============================================================
 if __name__ == "__main__":
