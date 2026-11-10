@@ -1,0 +1,263 @@
+"""Compare test MSE across neural-network depth and width."""
+
+import sys
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+module_dir = Path(__file__).parent / "submit-parts"
+sys.path.insert(0, str(module_dir))
+
+from function_setup2 import (
+    ReLU,
+    ReLU_der,
+    leaky_ReLU,
+    leaky_ReLU_der,
+    runge,
+    sigmoid,
+    sigmoid_der,
+)
+from part_a import C_mse
+from part_b import (
+    I_identity,
+    create_layers,
+    dI_dz,
+    predict,
+    raw_x,
+    train_network,
+)
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(2026)
+    sample_count = 100
+    x = np.sort(rng.uniform(-1.0, 1.0, sample_count))
+    y = runge(x) + rng.normal(0.0, 0.1, sample_count)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        raw_x(x),
+        y.reshape(-1, 1),
+        test_size=0.3,
+        random_state=42,
+    )
+    scaler = StandardScaler().fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    activation_sets = {
+        "Sigmoid": (sigmoid, sigmoid_der, "xavier"),
+        "ReLU": (ReLU, ReLU_der, "he"),
+        "Leaky ReLU": (leaky_ReLU, leaky_ReLU_der, "he"),
+    }
+    depths = np.arange(1, 6)
+    widths = np.array([10, 20, 50, 100, 200])
+    test_mse_grids = {
+        name: np.full((len(depths), len(widths)), np.nan)
+        for name in activation_sets
+    }
+    n_epochs = 500
+    batch_size = 32
+    seed = 42
+    mse_threshold = 1e-2
+    threshold_results = []
+
+    for activation_name, (activation, activation_derivative, init) in activation_sets.items():
+        for depth_index, depth in enumerate(depths):
+            optimizer = "adam" if depth == 1 else "rmsprop"
+            gamma = 0.1 if depth == 1 else 0.01
+            for width_index, width in enumerate(widths):
+                layer_sizes = [int(width)] * int(depth) + [1]
+                activation_funcs = [activation] * int(depth) + [I_identity]
+                activation_ders = [activation_derivative] * int(depth) + [dI_dz]
+
+                run_result = None
+                try:
+                    layers = create_layers(1, layer_sizes, seed=seed, init=init)
+                    layers, train_history = train_network(
+                        X_train,
+                        y_train,
+                        layers,
+                        activation_funcs,
+                        activation_ders,
+                        optimizer=optimizer,
+                        gamma=gamma,
+                        n_epochs=n_epochs,
+                        batch_size=batch_size,
+                        seed=seed,
+                    )
+                    threshold_epochs = np.flatnonzero(
+                        np.asarray(train_history) < mse_threshold
+                    )
+                    run_result = {
+                        "activation": activation_name,
+                        "depth": int(depth),
+                        "width": int(width),
+                        "layer_sizes": tuple(layer_sizes),
+                        "optimizer": optimizer,
+                        "gamma": gamma,
+                        "initialization": init,
+                        "epochs": (
+                            int(threshold_epochs[0] + 1)
+                            if threshold_epochs.size
+                            else None
+                        ),
+                        "threshold_mse": (
+                            float(train_history[threshold_epochs[0]])
+                            if threshold_epochs.size
+                            else None
+                        ),
+                        "final_train_mse": float(train_history[-1]),
+                        "batch_size": batch_size,
+                        "seed": seed,
+                    }
+                    threshold_results.append(run_result)
+                    train_mse = C_mse(
+                        y_train, predict(X_train, layers, activation_funcs)
+                    )
+                    test_mse = C_mse(
+                        y_test, predict(X_test, layers, activation_funcs)
+                    )
+                    if not (
+                        np.isfinite(train_mse)
+                        and np.isfinite(test_mse)
+                        and train_mse <= 10
+                        and test_mse <= 10
+                    ):
+                        print(
+                            f"{activation_name}, depth={depth}, width={width}: "
+                            f"diverged (train MSE={train_mse:.3e}, "
+                            f"test MSE={test_mse:.3e})"
+                        )
+                        continue
+
+                    test_mse_grids[activation_name][
+                        depth_index, width_index
+                    ] = test_mse
+                    print(
+                        f"{activation_name}, depth={depth}, width={width}, "
+                        f"optimizer={optimizer}, gamma={gamma:g}: "
+                        f"train MSE={train_mse:.4e}, test MSE={test_mse:.4e}"
+                    )
+                except (FloatingPointError, OverflowError, ValueError) as error:
+                    print(
+                        f"{activation_name}, depth={depth}, width={width}: "
+                        f"training failed: {error}"
+                    )
+                    if run_result is None:
+                        threshold_results.append({
+                            "activation": activation_name,
+                            "depth": int(depth),
+                            "width": int(width),
+                            "layer_sizes": tuple(layer_sizes),
+                            "optimizer": optimizer,
+                            "gamma": gamma,
+                            "initialization": init,
+                            "error": str(error),
+                            "batch_size": batch_size,
+                            "seed": seed,
+                        })
+                    else:
+                        run_result["error"] = str(error)
+
+    valid_grids = [
+        grid[np.isfinite(grid)]
+        for grid in test_mse_grids.values()
+        if np.isfinite(grid).any()
+    ]
+    if not valid_grids:
+        raise RuntimeError("No valid test MSE values were produced.")
+    valid_mse = np.concatenate(valid_grids)
+    vmin, vmax = valid_mse.min(), valid_mse.max()
+    if vmin == vmax:
+        vmax = vmin + 1e-12
+
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5), sharex=True, sharey=True)
+    for ax, (activation_name, mse_grid) in zip(axes, test_mse_grids.items()):
+        image = ax.imshow(
+            mse_grid,
+            origin="lower",
+            aspect="auto",
+            cmap="viridis",
+            vmin=vmin,
+            vmax=vmax,
+        )
+        ax.set_title(activation_name)
+        ax.set_xticks(np.arange(len(widths)), widths)
+        ax.set_yticks(np.arange(len(depths)), depths)
+        ax.set_xlabel("Nodes per hidden layer")
+
+        finite_mask = np.isfinite(mse_grid)
+        if finite_mask.any():
+            min_index = np.unravel_index(
+                np.nanargmin(mse_grid), mse_grid.shape
+            )
+            max_index = np.unravel_index(
+                np.nanargmax(mse_grid), mse_grid.shape
+            )
+            ax.scatter(
+                min_index[1],
+                min_index[0],
+                marker="o",
+                s=300,
+                facecolors="none",
+                edgecolors="white",
+                linewidths=2.5,
+                label="Lowest MSE",
+            )
+            ax.scatter(
+                max_index[1],
+                max_index[0],
+                marker="x",
+                s=180,
+                color="black",
+                linewidths=2.5,
+                label="Highest MSE",
+            )
+        for depth_index in range(len(depths)):
+            for width_index in range(len(widths)):
+                mse = mse_grid[depth_index, width_index]
+                label = f"{mse:.2e}" if np.isfinite(mse) else "Diverged"
+                ax.text(
+                    width_index,
+                    depth_index,
+                    label,
+                    ha="center",
+                    va="center",
+                    color="white",
+                    fontsize=8,
+                )
+
+    axes[0].set_ylabel("Number of hidden layers")
+    fig.suptitle("Test MSE by neural-network depth and width")
+    fig.subplots_adjust(left=0.08, right=0.87, bottom=0.16, top=0.86, wspace=0.3)
+    colorbar_ax = fig.add_axes([0.9, 0.2, 0.02, 0.6])
+    fig.colorbar(image, cax=colorbar_ax, label="Test MSE")
+    plt.show()
+
+    print(f"\n=== First epoch with training MSE < {mse_threshold:.0e} ===")
+    for result in threshold_results:
+        model = (
+            f"{result['activation']}, depth={result['depth']}, "
+            f"width={result['width']} (layers={result['layer_sizes']})"
+        )
+        training_config = (
+            f"optimizer={result['optimizer']}, gamma={result['gamma']:g}, "
+            f"init={result['initialization']}, max_epochs={n_epochs}, "
+            f"batch_size={result['batch_size']}, seed={result['seed']}"
+        )
+        if "error" in result:
+            print(f"  {model}: {training_config}; training error: {result['error']}")
+        elif result["epochs"] is None:
+            print(
+                f"  {model}: not reached in {n_epochs} epochs "
+                f"(final train MSE={result['final_train_mse']:.4e}); "
+                f"{training_config}"
+            )
+        else:
+            print(
+                f"  {model}: epoch={result['epochs']}, "
+                f"train MSE={result['threshold_mse']:.4e}; {training_config}"
+            )
