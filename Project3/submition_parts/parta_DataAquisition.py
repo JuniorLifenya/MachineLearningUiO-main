@@ -70,18 +70,20 @@ def Vol_transition_dataset(adj_close, benchmark = "SPY", horizon = 5):
 
     # 6. Collect every intermediate variable
     steps = pd.DataFrame({
-        "price": price,
-        "ret": log_ret,
-        "squared_ret": squared_ret,
-        "rv": rv,
-        "rv_past": rv_past,
-        "rv_future": rv_future
+    "price":       price,
+    "ret":         log_ret[benchmark],
+    "squared_ret": squared_ret[benchmark],
+    "rv":          rv[benchmark],
+    "rv_past":     rv_past[benchmark],
+    "rv_future":   rv_future[benchmark],
     })
 
     # 7. Keep observations where all required quantities exists
-    model_data = steps.dropna(
-        subset = ["price", "ret", "squared_ret", "rv", "rv_past", "rv_future"]
-    ).copy()
+    # keep only dates where every instrument has a price, and start at the
+    # latest first-valid-date across instruments (XLC: 2018-06-19)
+    adj_close = adj_close.dropna(how="any")
+    first_common = adj_close.index.min()   # should be >= 2018-06-19
+    adj_close = adj_close.loc[first_common:]
 
     return steps, model_data
     
