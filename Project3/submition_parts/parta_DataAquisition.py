@@ -79,11 +79,9 @@ def Vol_transition_dataset(adj_close, benchmark = "SPY", horizon = 5):
     })
 
     # 7. Keep observations where all required quantities exists
-    # keep only dates where every instrument has a price, and start at the
-    # latest first-valid-date across instruments (XLC: 2018-06-19)
-    adj_close = adj_close.dropna(how="any")
-    first_common = adj_close.index.min()   # should be >= 2018-06-19
-    adj_close = adj_close.loc[first_common:]
+    model_data = steps.dropna(
+        subset = ["price", "ret", "squared_ret", "rv", "rv_past", "rv_future"]
+    ).copy()
 
     return steps, model_data
     
