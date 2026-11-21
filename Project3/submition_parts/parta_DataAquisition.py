@@ -88,13 +88,21 @@ def Vol_transition_dataset(adj_close, benchmark = "SPY", horizon = 5):
 
 # --------------------------------- Plot every transition ---------------------------------
 
-def plot_data_pipeline(steps, horizon=5):
+if __name__ == "__Main__":
+
+    adj_close_data = Kaggle_Data_download.get_data()
+
+    steps, model_data = Vol_transition_dataset(
+        adj_close=adj_close_data,
+        benchmark="SPY",
+        horizon=5
+    )
 
     fig, axes = plt.subplots(
-        5, 1,
-        figsize=(14, 15),
-        sharex=True
-    )
+            5, 1,
+            figsize=(14, 15),
+            sharex=True
+        )
 
     # 1. Adjusted closing price
     axes[0].plot(steps.index, steps["price"])
@@ -149,10 +157,4 @@ def plot_data_pipeline(steps, horizon=5):
     plt.show()
 
 
-steps, model_data = Vol_transition_dataset(
-    adj_close=Kaggle_Data_download.get_data(),
-    benchmark="SPY",
-    horizon=5
-)
 
-plot_data_pipeline(steps, horizon=5)
