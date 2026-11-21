@@ -1,6 +1,7 @@
 # Kaggle_Data_download.py
 from pathlib import Path
 import pandas as pd
+import yfinance as yf
 import kagglehub
 
 DATASET = "darkmatternet/s-and-p-500-stocks-25-years-of-data-updated-daily"
@@ -78,3 +79,36 @@ def get_data() -> pd.DataFrame:
     )
     wide.columns.name = None
     return wide
+
+def load_kaggle_panel_with_benchmark(benchmark="SPY", start="2000-01-01"):
+    """
+    Return the Kaggle constituent panel with `benchmark` appended as a column.
+    Kaggle stocks come from the local snapshot; SPY is fetched from Yahoo.
+    """
+    panel = get_data()                        # existing loader
+    if not isinstance(panel, pd.DataFrame):
+        raise TypeError(f"get_data() returned {type(panel)}, expected DataFrame")
+    panel = panel.sort_index()
+    panel.index = pd.to_datetime(panel.index)
+
+    spy = yf.download(
+        benchmark,
+        start=panel.index.min(),
+        end=panel.index.max() + pd.Timedelta(days=1),
+        auto_adjust=False,
+        progress=False,
+    )
+    if spy.empty:
+        raise RuntimeError(f"Yahoo returned no rows for {benchmark}")
+
+    # yfinance returns MultiIndex columns when start/end are both set
+    if isinstance(spy.columns, pd.MultiIndex):
+        spy_adj = spy["Adj Close"][benchmark]
+    else:
+        spy_adj = spy["Adj Close"]
+
+    spy_adj = spy_adj.rename(benchmark)
+    spy_adj.index = pd.to_datetime(spy_adj.index)
+
+    combined = panel.join(spy_adj, how="left")
+    return combined

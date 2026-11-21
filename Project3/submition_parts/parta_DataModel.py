@@ -1,12 +1,12 @@
 import numpy as np
 from pathlib import Path
 import sys
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 import matplotlib.pyplot as plt
 import pandas as pd 
 import yfinance as yf 
-import Project3.data.Kaggle_Data_download as Kaggle_Data_download
+from data import Kaggle_Data_download  as Kaggle_Data_download
 
 # ===================================================================================================================
 #                       Data Production: Transition-Label and Feasibility
@@ -42,9 +42,18 @@ def Vol_transition_dataset(adj_close, benchmark = "SPY", horizon = 5):
         including past,future and returns for each instrument and the benchmark.
         Raises if benchmark is missing - no silent fallback. 
     """
-    adj_close = adj_close.sort_index
+    if not isinstance(adj_close, pd.DataFrame):
+        raise TypeError(
+            f"adj_close must be a DataFrame, got {type(adj_close).__name__}. "
+            f"If you meant to call a loader, add parentheses: loader()."
+        )
+    adj_close = adj_close.sort_index()                 # ← parentheses
     if benchmark not in adj_close.columns:
-        raise ValueError(f"Benchmark {benchmark} not found in columns.")
+        raise ValueError(
+            f"Benchmark {benchmark!r} not in columns. "
+            f"Available: {list(adj_close.columns)[:5]} ... "
+            f"({len(adj_close.columns)} total)"
+        )
 
     # 1. Extract benchmark price series
     # Ensure it's float for calculations
