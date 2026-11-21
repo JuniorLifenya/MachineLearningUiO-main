@@ -1,59 +1,106 @@
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import sys 
-from pathlib import Path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
 
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from data.oslo_prices import (
     load_oslo_prices,
     audit_price_panel
 )
 
-# ============================================================
-#                  OSLO DATA INSPECTION
-# ============================================================
 
-# 1. Load data
-prices = load_oslo_prices(
-    "oslo-stocks-2023-2025.xlsx"
-)
+def main():
 
-# 2. Audit data
-report = audit_price_panel(prices)
+    # ========================================================
+    # 1. LOAD DATA
+    # ========================================================
 
-print("\nDATA AUDIT")
-for key, value in report.items():
-    print(f"{key}: {value}")
+    prices = load_oslo_prices(
+        "oslo-stocks-2023-2025.xlsx"
+    )
 
-# 3. Inspect dimensions
-print("\nDATA SHAPE")
-print(prices.shape)
+    # ========================================================
+    # 2. DATA QUALITY AUDIT
+    # ========================================================
 
-# 4. Inspect instruments
-print("\nINSTRUMENTS")
-print(prices.columns.tolist())
+    report = audit_price_panel(prices)
 
-# 5. Inspect first observations
-print("\nFIRST OBSERVATIONS")
-print(prices.head())
+    print("\n========== DATA AUDIT ==========")
 
-# 6. Inspect historical coverage
-print("\nOBSERVATION COVERAGE")
+    for key, value in report.items():
+        print(f"{key}: {value}")
 
-coverage = prices.notna().sum().sort_values(
-    ascending=False
-)
+    # ========================================================
+    # 3. DATA DIMENSIONS AND COVERAGE
+    # ========================================================
 
-print(coverage)
+    coverage = prices.notna().sum().sort_values(
+        ascending=False
+    )
 
-# 7. Inspect missing observations
-print("\nMISSING OBSERVATIONS")
+    print("\n========== DATA DIMENSIONS ==========")
+    print("Observations:", prices.shape[0])
+    print("Instruments:", prices.shape[1])
+    print("Date range:", prices.index.min(), "to", prices.index.max())
 
-missing = prices.isna().sum().sort_values(
-    ascending=False
-)
+    print("\n========== TOP 15 INSTRUMENTS BY COVERAGE ==========")
+    print(coverage.head(15))
 
-print(missing)
+    print("\n========== LOWEST 15 COVERAGE ==========")
+    print(coverage.tail(15))
+
+    # ========================================================
+    # 4. MISSING DATA
+    # ========================================================
+
+    missing = prices.isna().sum()
+
+    print("\n========== MISSING DATA ==========")
+    print("Total missing cells:", prices.isna().sum().sum())
+    print("Percentage missing:",
+          100 * prices.isna().sum().sum() / prices.size)
+
+    print("\nMissing by instrument:")
+    print(missing.sort_values(ascending=False).head(15))
+
+    # ========================================================
+    # 5. EXAMPLE OBSERVATIONS
+    # ========================================================
+
+    selected = prices.columns.tolist()
+
+    print("\n========== EXAMPLE INSTRUMENTS ==========")
+    print("Selected:", selected)
+    print(prices[selected].head(10))
+
+    # ========================================================
+    # 6. INITIAL PRICE VISUALIZATION
+    # ========================================================
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    for ticker in selected:
+        ax.plot(
+            prices.index,
+            prices[ticker],
+            label=ticker
+        )
+
+    ax.set_title("Oslo equities: Adjusted closing prices")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Adjusted closing price")
+    ax.legend()
+    ax.grid(alpha=0.25)
+
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
