@@ -8,6 +8,8 @@ import pandas as pd
 import yfinance as yf 
 from data import Kaggle_Data_download  as Kaggle_Data_download
 
+
+
 # ===================================================================================================================
 #                       Data Production: Transition-Label and Feasibility
 # ===================================================================================================================
