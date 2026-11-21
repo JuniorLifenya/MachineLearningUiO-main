@@ -97,6 +97,15 @@ def returns_vs_benchmark(panel, benchmark, path):
     fig.savefig(path, format="svg", bbox_inches="tight")
     plt.close(fig)
 
+def flag_extreme_days(panel, threshold=0.5):
+    """Return log returns whose |r| > threshold — candidates for data errors."""
+    log_ret = np.log(panel / panel.shift(1))
+    mask = log_ret.abs() > threshold
+    if mask.any().any():
+        offending = mask.stack()
+        offending = offending[offending]
+        print(offending.head(20))
+    return mask
 
 if __name__ == "__main__":
     panel = Kaggle_Data_download.load_kaggle_panel_with_benchmark("SPY")
