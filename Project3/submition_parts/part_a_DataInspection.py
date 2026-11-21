@@ -90,13 +90,53 @@ def main():
             prices.index,
             prices[ticker],
             label=ticker
-        )
+    )
 
     ax.set_title("Oslo equities: Adjusted closing prices")
     ax.set_xlabel("Date")
     ax.set_ylabel("Adjusted closing price")
     ax.legend()
     ax.grid(alpha=0.25)
+
+    plt.tight_layout()
+    plt.show()
+
+    # ========================================================
+    # 7. RETURNS AND REALIZED VOLATILITY
+    # ========================================================
+
+    log_ret = np.log(prices).diff()
+
+    squared_ret = log_ret ** 2
+    rv5 = np.sqrt(
+        squared_ret.rolling(window=5, min_periods=5).sum()
+    )
+
+    # ========================================================
+    # 8. THREE-PANEL FIGURE (prices, returns, RV)
+    # ========================================================
+
+    selected = prices.columns.tolist()   # all 5 — no selection to defend
+
+    fig, axes = plt.subplots(
+        2, 1, figsize=(14, 12), sharex=True,
+    )
+
+    for ticker in selected:
+        axes[0].plot(log_ret.index, log_ret[ticker],
+                    label=ticker, linewidth=0.8)
+        axes[1].plot(rv5.index, rv5[ticker], label=ticker)
+
+
+    axes[0].set_title("Oslo equities: Daily log returns")
+    axes[0].set_ylabel("Log return")
+
+    axes[1].set_title("Oslo equities: 5-session realized volatility")
+    axes[1].set_ylabel("RV (5)")
+
+    for ax in axes:
+        ax.grid(alpha=0.25)
+    axes[0].legend(ncol=5, loc="upper left", fontsize=9)
 
     plt.tight_layout()
     plt.show()
