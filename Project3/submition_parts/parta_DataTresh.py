@@ -6,7 +6,7 @@ sys.path.insert(0, str(project_root))
 import matplotlib.pyplot as plt
 import pandas as pd 
 import yfinance as yf 
-import Kaggle_Data_download
+import Project3.data.Kaggle_Data_download as Kaggle_Data_download
 
 # ===================================================================================================================
 #                       Data Production: Transition-Label and Feasibility
@@ -42,6 +42,7 @@ def Vol_transition_dataset(adj_close, benchmark = "SPY", horizon = 5):
         including past,future and returns for each instrument and the benchmark.
         Raises if benchmark is missing - no silent fallback. 
     """
+    adj_close = adj_close.sort_index
     if benchmark not in adj_close.columns:
         raise ValueError(f"Benchmark {benchmark} not found in columns.")
 
@@ -87,50 +88,52 @@ def Vol_transition_dataset(adj_close, benchmark = "SPY", horizon = 5):
     
 
 # --------------------------------- Plot every transition ---------------------------------
+BENCHMARK = "SPY"
+HORIZON = 5
 
-if __name__ == "__Main__":
+if __name__ == "__main__":
 
+    # 1. Acquire the raw data
     adj_close_data = Kaggle_Data_download.get_data()
+    print("Raw data shape:", adj_close_data.shape)
+    print("Available instruments:", adj_close_data.columns.tolist())
 
+    # 2. Construct the volatility dataset
     steps, model_data = Vol_transition_dataset(
         adj_close=adj_close_data,
-        benchmark="SPY",
-        horizon=5
+        benchmark=BENCHMARK,
+        horizon=HORIZON
     )
 
-    fig, axes = plt.subplots(
-            5, 1,
-            figsize=(14, 15),
-            sharex=True
-        )
+    print("Intermediate data:", steps.shape)
+    print("Complete observations:", model_data.shape)
 
-    # 1. Adjusted closing price
+
+    # 3. Construct the figure plot
+    fig, axes = plt.subplots(
+        5,1,figsize = (14,15),
+        sharex = True
+    )
+
+    # 4. Plot the individual transformations
     axes[0].plot(steps.index, steps["price"])
     axes[0].set_title("1. Adjusted closing price")
     axes[0].set_ylabel("Price")
 
-    # 2. Daily logarithmic returns
     axes[1].plot(steps.index, steps["ret"], linewidth=0.8)
     axes[1].set_title("2. Daily logarithmic returns")
     axes[1].set_ylabel("Log return")
 
-    # 3. Squared returns
-    axes[2].plot(
-        steps.index,
-        steps["squared_ret"],
-        linewidth=0.8
-    )
+    axes[2].plot(steps.index, steps["squared_ret"], linewidth=0.8)
     axes[2].set_title("3. Squared daily returns")
     axes[2].set_ylabel("Squared return")
 
-    # 4. Rolling realized volatility
-    axes[3].plot(steps.index, steps["rv"])
+    axes[3].plot(steps.index, steps["rv_past"])
     axes[3].set_title(
-        f"4. Rolling {horizon}-session realized volatility"
+        f"4. Historical {HORIZON}-session realized volatility"
     )
     axes[3].set_ylabel("Realized volatility")
 
-    # 5. Historical and future volatility aligned at date t
     axes[4].plot(
         steps.index,
         steps["rv_past"],
@@ -144,15 +147,13 @@ if __name__ == "__Main__":
         alpha=0.8
     )
 
-    axes[4].set_title(
-        "5. Historical and future volatility at prediction date t"
-    )
-    axes[4].set_ylabel("Volatility")
+    axes[4].set_title("5. Past versus future volatility")
+    axes[4].set_ylabel("Realized volatility")
     axes[4].legend()
 
     for ax in axes:
-        ax.grid(alpha=0.25)
-
+            ax.grid(alpha=0.25)
+    
     plt.tight_layout()
     plt.show()
 
