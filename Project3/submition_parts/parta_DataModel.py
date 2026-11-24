@@ -35,7 +35,7 @@ def realized_vol(returns,horizon= 5):
 
     return np.sqrt(rolling_variance)
 
-# --------------------------------- The main function to produce the transition dataset ---------------------------------
+# --------------------------------- The main function to produce the transition dataset -----------------------------
 
 def Vol_transition_dataset(adj_close, benchmark = "SPY", horizon = 5):
     """"

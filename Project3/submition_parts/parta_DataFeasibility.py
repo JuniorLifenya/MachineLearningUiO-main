@@ -48,7 +48,7 @@ def feasibility_report(model_data, q_pct=0.80):
 
 
 if __name__ == "__main__":
-    adj_close_data = Kaggle_Data_download.get_data()
+    adj_close_data = Kaggle_Data_download.load_kaggle_panel_with_benchmark("SPY")
     steps, model_data = Vol_transition_dataset(
         adj_close=adj_close_data,
         benchmark="SPY",
