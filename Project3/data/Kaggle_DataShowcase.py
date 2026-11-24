@@ -144,17 +144,21 @@ def extreme_returns_scatter(panel, path, threshold=0.5):
 
 def outlier_instruments(panel, path, top_n=10, threshold=0.5):
     log_ret = np.log(panel / panel.shift(1))
-    worst = log_ret.min().sort_values()
-    worst_abs = log_ret.abs().max().sort_values(ascending=False)
+    worst_abs_val = log_ret.abs().max()
+    worst_abs_idx = log_ret.abs().idxmax()
+    worst_neg_val = log_ret.min()
+    worst_neg_idx = log_ret.idxmin()
     n_extreme = (log_ret.abs() > threshold).sum()
 
+    top_abs = worst_abs_val.sort_values(ascending=False).index[:top_n]
+
     table = pd.DataFrame({
-        "worst_log_ret_%": (100 * worst).round(1),
-        "worst_date": worst.index.map(
-            lambda t: log_ret[t].idxmin().date()
-        ),
-        "n_|r|>50%": n_extreme,
-    }).loc[worst_abs.index[:top_n]]
+        "worst_abs_%": (100 * worst_abs_val[top_abs]).round(1),
+        "worst_abs_date": worst_abs_idx[top_abs].dt.date,
+        "worst_neg_%": (100 * worst_neg_val[top_abs]).round(1),
+        "worst_neg_date": worst_neg_idx[top_abs].dt.date,
+        "n_|r|>50%": n_extreme[top_abs],
+    })
 
     render_table(table,
                  FIG / "s3_kaggle_outliers.svg",
