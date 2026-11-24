@@ -105,7 +105,7 @@ HORIZON = 5
 if __name__ == "__main__":
 
     # 1. Acquire the raw data
-    adj_close_data = Kaggle_Data_download.get_data()
+    adj_close_data = Kaggle_Data_download.load_kaggle_panel_with_benchmark("SPY")
     print("Raw data shape:", adj_close_data.shape)
     print("Available instruments:", adj_close_data.columns.tolist())
 
