@@ -1,0 +1,1574 @@
+\documentclass[11pt,a4paper]{article}
+
+% -----------------------------------------------------------------------------
+% Project 3 working specification and consistency audit.
+% This is a research-design document, not submission-ready report prose.
+% The author must write the final report independently under the UiO LLM rules.
+% -----------------------------------------------------------------------------
+
+\usepackage[a4paper,margin=24mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{booktabs,tabularx,longtable,array,multirow}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{setspace}
+\usepackage{caption}
+\usepackage{float}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!65!black,
+  pdftitle={Project 3: Technical Design Audit and Research Blueprint},
+  pdfauthor={Daniel Junior Lifenya Fondo},
+  pdfsubject={Robust financial time-series classification under structured data corruption}
+}
+
+\setlist[itemize]{leftmargin=1.7em,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=1.9em,itemsep=3pt,topsep=3pt}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{2em}
+\setlength{\headheight}{14pt}
+\captionsetup{font=small,labelfont=bf}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{FYS-STK3155/FYS4155 --- Project 3}
+\rhead{Technical design audit}
+\cfoot{\thepage\ of \pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\newcommand{\todo}[1]{\textcolor{red!75!black}{\textbf{[TODO: #1]}}}
+\newcommand{\verify}[1]{\textcolor{orange!80!black}{\textbf{[VERIFY: #1]}}}
+\newcommand{\decision}[1]{\textcolor{blue!70!black}{\textbf{[DECISION: #1]}}}
+\newcommand{\notclaim}[1]{\textcolor{red!70!black}{\textbf{[DO NOT CLAIM: #1]}}}
+\newcommand{\RV}{\operatorname{RV}}
+\newcommand{\sd}{\operatorname{sd}}
+\newcommand{\logit}{\operatorname{logit}}
+\newcommand{\US}{\text{US}}
+\newcommand{\OS}{\text{Oslo}}
+\newcommand{\train}{\mathcal{T}_{\mathrm{train}}}
+\newcommand{\val}{\mathcal{T}_{\mathrm{val}}}
+\newcommand{\test}{\mathcal{T}_{\mathrm{test}}}
+
+\newtcolorbox{decisionbox}[1][]{
+  enhanced,breakable,colback=blue!3,colframe=blue!45!black,
+  title={Design decision},fonttitle=\bfseries,#1
+}
+\newtcolorbox{warningbox}[1][]{
+  enhanced,breakable,colback=red!3,colframe=red!55!black,
+  title={Consistency warning},fonttitle=\bfseries,#1
+}
+\newtcolorbox{statusbox}[1][]{
+  enhanced,breakable,colback=green!3,colframe=green!45!black,
+  title={Working status},fonttitle=\bfseries,#1
+}
+\newtcolorbox{agentbox}[1][]{
+  enhanced,breakable,colback=gray!5,colframe=gray!60,
+  title={Instruction for coding agents},fonttitle=\bfseries,#1
+}
+
+\lstdefinestyle{python}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!45!black}\itshape,
+  stringstyle=\color{red!60!black},
+  numbers=left,numberstyle=\tiny\color{gray},numbersep=6pt,
+  frame=single,breaklines=true,showstringspaces=false,tabsize=4
+}
+\lstdefinestyle{cpp}{
+  language=C++,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!45!black}\itshape,
+  stringstyle=\color{red!60!black},
+  numbers=left,numberstyle=\tiny\color{gray},numbersep=6pt,
+  frame=single,breaklines=true,showstringspaces=false,tabsize=4
+}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{18mm}
+{\Large University of Oslo\par}
+\vspace{2mm}
+{\large FYS-STK3155/FYS4155 --- Data Analysis and Machine Learning\par}
+\vspace{18mm}
+{\huge\bfseries Project 3\par}
+\vspace{5mm}
+{\LARGE\bfseries Cross-Market Robustness of Financial Time-Series Classification\par}
+\vspace{3mm}
+{\Large Under Structured Data Corruption\par}
+\vspace{4mm}
+{\large A C++/Python Fault-Injection and Evaluation Framework\par}
+\vspace{16mm}
+{\large Technical Design Audit, Method Specification, and Execution Checklist\par}
+\vfill
+{\large Daniel Junior Lifenya Fondo\par}
+{\normalsize Department of Physics, University of Oslo\par}
+\vspace{5mm}
+{\normalsize Version: 24 November 2026\par}
+{\normalsize Course deadline: 11 December 2026\par}
+\vfill
+\begin{tcolorbox}[width=0.92\textwidth,colback=yellow!8,colframe=orange!65!black]
+\centering\textbf{Document status: WORKING RESEARCH SPECIFICATION --- NOT A SUBMISSION-READY REPORT.}
+
+This file consolidates technical decisions, equations, checks, source references, unresolved questions, and implementation tasks. It intentionally does not supply polished report paragraphs. The course instructions restrict generative-AI use for report prose to spelling, grammar, and minor phrasing. The final scientific narrative must therefore be written by the author in their own words.
+\end{tcolorbox}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+\section{Purpose, status conventions, and governing constraints}
+\label{sec:purpose}
+
+\subsection{Purpose of this document}
+
+This document has four uses:
+\begin{enumerate}
+  \item a consistency audit of the current Project 3 draft;
+  \item a technical specification for the proposed Path B experiment;
+  \item a checklist for the data, modelling, fault-injection, and evaluation implementation;
+  \item a persistent context document for coding agents and future work sessions.
+\end{enumerate}
+
+It is not a substitute for the final report. The final report must explain the decisions and findings in the author's own words, follow the current UiO instructions, cite the sources actually consulted, and report only results generated by the frozen implementation. The course specifies approximately 5,000 words, around 10--15 figures, a code repository, a reproducibility README, and an explicit LLM-use declaration \cite{UiOProject3}.
+This blueprint attaches references to equations, methodological conventions, and external factual claims where a source is available. Project-specific definitions (the quantile threshold, eligibility rule, synthetic fault equations, feature set, and severity grid) are design choices rather than established textbook identities; they must be labelled as such and justified by the study's purpose. A citation supports only the claim that the cited source actually establishes. Read the cited source before using it in the final report.
+
+\subsection{Status conventions}
+
+\begin{description}[leftmargin=2.1cm,style=nextline]
+  \item[FIXED] A methodological or scope decision adopted for the minimum viable experiment.
+  \item[PROVISIONAL] A current proposal that must be checked against the actual data before it is frozen.
+  \item[TODO] An implementation or reporting task that remains incomplete.
+  \item[VERIFY] A factual claim, data field, source detail, or assumption that needs direct evidence.
+  \item[OPTIONAL] An extension that is excluded from the minimum viable project unless the required work is complete.
+  \item[EXCLUDED] Explicitly outside the current project scope.
+\end{description}
+
+\begin{warningbox}
+Do not convert a provisional statement into a reported fact merely because it appears in this specification. Dataset dimensions, date ranges, missingness, instrument membership, benchmark field names, class frequencies, and model scores must come from the actual frozen files and execution logs.
+\end{warningbox}
+
+\subsection{Course and research-integrity constraints}
+
+\begin{itemize}
+  \item The selected course path is Path B: one classification problem, at least three course methods, including a neural network and a tree-based ensemble. Confirm the Canvas group/partner requirement and identify all report authors before submission.
+  \item Model selection must use training/validation data. The final test partition is reserved until the pipeline and the predeclared experiment matrix are frozen; it is then processed in one final, scripted evaluation campaign across the predeclared model/fault conditions. Test outcomes must not be inspected iteratively to revise thresholds, features, hyperparameters, fault severities, or the research question. Multiple predeclared test conditions are part of the final evaluation, not repeated opportunities for model selection.
+  \item Seeds, hyperparameters, software, data provenance, and code ownership must be documented.
+  \item Code assisted by an LLM must carry the course-prescribed inline \texttt{LLM-assisted} tag and be understood and tested by the author.
+  \item For report prose, the current course rule permits only contribution level 1: spell-checking, grammar, and minor phrasing. LLM drafting, rewriting, or restructuring of report sections is not permitted \cite{UiOProject3}.
+\end{itemize}
+
+% ============================================================================
+\section{Project objective and scope}
+\label{sec:objective}
+
+\subsection{Working title}
+
+\emph{Cross-Market Robustness of Financial Time-Series Classification Under Structured Data Corruption: A C++/Python Fault-Injection and Evaluation Framework.}
+
+\subsection{Central objective}
+
+\begin{decisionbox}
+Construct a reproducible financial time-series classification pipeline, evaluate it independently on a US equity panel and a Norwegian equity panel, inject controlled structural corruptions into the historical price inputs, and measure how those corruptions alter the performance of several classifiers. Build the fault-injection component in C++17 and integrate it with the Python research pipeline. Evaluate whether fault-augmented training or separately specified quality-aware handling reduces corruption-induced degradation.
+\end{decisionbox}
+
+The work is not a new volatility estimator, a new neural-network architecture, or an investable trading strategy. The intended contribution is a controlled empirical study of robustness and a tested, traceable engineering component. The time-series-fault benchmark literature motivates parameterized fault scenarios and paired clean/corrupted evaluation, but TS-Fault studies forecasting models and is an arXiv preprint; it is methodological context, not direct validation of this financial classification design \cite{Zhao2026TSFault}.
+
+\subsection{Research questions}
+
+\begin{enumerate}[label=RQ\arabic*:,leftmargin=2.1cm]
+  \item How do the US and Oslo price panels differ in coverage, missingness, return behaviour, and benchmark alignment?
+  \item How sensitive are individual-equity volatility-transition classifiers to distinct types and severities of input corruption?
+  \item Do model ranking and performance degradation depend on the fault mechanism and the market dataset?
+  \item Does training with controlled corruptions improve robustness on independently generated corrupted inputs, and what is the cost on reference inputs?
+  \item Can the fault injector and evaluation pipeline produce deterministic, auditable, and reproducible experimental records?
+\end{enumerate}
+
+\subsection{Testable hypotheses (provisional)}
+
+\begin{itemize}
+  \item[H1.] Corruption of historical price inputs degrades out-of-sample classification performance relative to the same model evaluated on the unmodified reference inputs.
+  \item[H2.] The magnitude of degradation depends on fault type and severity; the model ranking under reference inputs need not be preserved under corruption.
+  \item[H3.] Fault-augmented training can reduce degradation for some fault scenarios, but may trade off performance on reference inputs.
+  \item[H4.] The direction or magnitude of relative degradation may differ between the US and Oslo panels. The comparison is made within each dataset first; raw accuracy differences between the markets are not interpreted as market difficulty differences.
+\end{itemize}
+
+These are hypotheses, not expected findings. No direction of effect is assumed to be true before the experiments.
+
+\subsection{Three-layer project structure}
+
+\begin{enumerate}
+  \item \textbf{Financial time-series analysis:} build and audit the data, define a causal feature set, and construct a forward-looking volatility-transition target.
+  \item \textbf{Fault injection and robustness:} introduce controlled changes to raw historical inputs, preserve clean reference labels, and measure performance changes.
+  \item \textbf{Engineering and observability:} implement deterministic C++ fault injection, test the Python/C++ boundary, and retain sufficient metadata to explain each run.
+\end{enumerate}
+
+\subsection{Explicit exclusions from the minimum viable project}
+
+\begin{itemize}
+  \item Eleven S\&P sector ETFs and VIX features.
+  \item A CNN, RNN, LSTM, transformer, or neural network implemented from scratch in C++.
+  \item A broad PCA/SVD or wavelet feature programme.
+  \item A lawyer-allocation or lawyer-retention model (the financial datasets do not contain the required legal-platform outcomes).
+  \item Claims that synthetic price faults reproduce every real vendor, corporate-action, or market-data failure.
+  \item Pooling the US and Oslo observations into one model in the primary analysis.
+\end{itemize}
+
+\subsection{Priority hierarchy: primary study versus replication}
+
+\begin{decisionbox}
+The US Kaggle panel with SPY is the primary Path~B dataset and the main inferential experiment. The Oslo five-stock panel with OSEBX (if the data check passes) is a secondary, independently analysed replication/feasibility study. Do not let the Oslo panel double the experimental workload before the US primary study is complete. If the Oslo positive-event count or effective time-series length is too small, retain its data audit and descriptive/fault-propagation results but report classifier inference as limited or inconclusive.
+\end{decisionbox}
+
+This priority order is a project-management recommendation, not a claim that the US panel is intrinsically more representative or economically superior. The course asks for one classification study; the second market should be presented as a deliberately bounded replication/extension and discussed with the teaching staff as part of approval for a self-selected dataset \cite{UiOProject3}. The primary grading evidence should remain complete even if the Oslo extension is reduced or removed because its effective event count is inadequate.
+
+% ============================================================================
+\section{Critical consistency audit of the current draft}
+\label{sec:audit}
+
+The current draft contains useful ideas, but several parts are mutually inconsistent or exceed what the available data can support. These corrections should be made before report writing.
+
+\begin{longtable}{p{3.2cm}p{5.8cm}p{5.7cm}}
+\caption{Priority consistency corrections.}\label{tab:consistency}\\
+\toprule
+\textbf{Current draft issue} & \textbf{Why it is problematic} & \textbf{Required correction}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Current draft issue} & \textbf{Why it is problematic} & \textbf{Required correction}\\
+\midrule
+\endhead
+SPY-only code described as a stock panel & A single SPY series has no ticker dimension and cannot support per-instrument thresholds or a pooled stock-date classifier. & Keep SPY-only as a pipeline smoke test if useful; build the main US dataset as a per-instrument panel, with SPY as a benchmark feature only.\\
+\addlinespace
+One global threshold in one section, per-stock thresholds elsewhere & The label and the code would represent different statistical problems. & Use a per-instrument training-period threshold $q_i$ for the panel experiment. The benchmark does not define the stock label.\\
+\addlinespace
+80th percentile in abstract, 75th percentile in methods & The draft has two conflicting target definitions. & Set one primary threshold (provisionally $\tau=0.75$) and one predeclared sensitivity threshold (provisionally $0.80$). Never choose using test results.\\
+\addlinespace
+Symmetric transition versus calm-to-high transition & These are different classification targets and have different class balance and economics. & Use non-elevated-to-elevated as the primary target, with the four-state transition table reported diagnostically.\\
+\addlinespace
+``$y_{t+1}=y_t$'' persistence rule & This is not the relevant persistence benchmark for the conditional eligible-sample target. & Use a state-persistence baseline that predicts ``no transition'' for every eligible sample. State explicitly that it is a weak but transparent reference.\\
+\addlinespace
+``Clean'' data treated as error-free & Vendor/course files can contain undocumented errors. Fault injection adds known perturbations; it does not prove the reference files are pristine. & Call them reference or unmodified-source inputs, not ground-truth clean data. Retain the data-quality audit and its limitations.\\
+\addlinespace
+Raw-price forward fill before calculating returns & Forward fill creates artificial zero returns during missing intervals and can produce a catch-up return at the next valid observation. & Preserve raw missingness. Calculate returns only when adjacent observations on the common trading calendar are valid. Apply any imputer to engineered features, fit on training only, and retain missingness indicators.\\
+\addlinespace
+OHLCV validation on synthetic OHLC derived from adjusted close & Synthetic open/high/low values cannot validate true OHLC relationships; absent volume cannot be checked. & Run only close-panel checks on close-only data. Do not claim OHLC or volume validation without genuine OHLCV observations.\\
+\addlinespace
+PCA, sector, spectral, wavelet, and quality families all in the core design & This mixes several research questions and contradicts the deliberately small feature set. & Use a compact causal baseline feature set. Retain cross-sectional dispersion as one optional ablation. Keep PCA/wavelets outside the minimum project.\\
+\addlinespace
+Quality indicators and corruption augmentation combined in one condition & If both interventions change at once, an improvement cannot be attributed to either mechanism. & Separate fault-augmented training from any quality-indicator or detect/repair intervention. The latter is optional.\\
+\addlinespace
+Fixed six-day bootstrap block justified only by $H=5$ & Overlap in the label is one dependence source; volatility persistence can extend beyond six days. & Choose block length after dependence diagnostics and report sensitivity across several plausible lengths. Resample whole date-vectors to preserve cross-sectional dependence.\\
+\addlinespace
+False alarms per year and warning lead time without event definitions & Repeated overlapping positive windows can count the same transition many times. & Use standard classification metrics as primary results. Add event-level alarms/lead time only after defining a de-duplication and event-matching rule.\\
+\addlinespace
+Exact reproducibility across all toolchains claimed & Seeds do not guarantee bit-identical results across different compilers, standard libraries, BLAS implementations, or nondeterministic ML kernels. & Promise deterministic fault injection within a pinned build/runtime and record the full software/hardware environment. Test ML reproducibility separately.\\
+\addlinespace
+``504 instruments'' and date/row counts asserted before final audit & The observed raw Kaggle panel previously printed as 6762 dates by 503 ticker columns before a benchmark was added; actual usable rows depend on alignment, missingness, and warm-up. & Report only the final frozen-audit counts. Treat 6762$\times$503 as a prior observed run, not a permanent dataset property.\\
+\bottomrule
+\end{longtable}
+
+\begin{warningbox}
+A particularly important correction: the current Oslo file contains adjusted closing prices only. Constructing synthetic OHLC fields from close does not make OHLC validation possible. The report must not claim that it validated high/low/open consistency or volume unless those fields are present in the actual source.
+\end{warningbox}
+
+% ============================================================================
+\section{Data sources, provenance, and panel construction}
+\label{sec:data}
+
+\subsection{Primary US panel: Kaggle equities plus SPY}
+\label{sec:usdata}
+
+\textbf{Source.} The Kaggle dataset is identified as \emph{S\&P 500 Stocks: 25 Years of Data (Updated Daily)} \cite{KaggleSP500}. The user-written downloader retrieves the dataset through KaggleHub, parses CSV files, and pivots the long records to a date-by-ticker panel. A prior terminal run reported a raw panel shape of approximately $6762\times503$ before adding SPY. This is a run-specific observation, not a final reported count. The stock panel's instrument count excludes SPY: SPY is a separately sourced benchmark series and is not a stock-level target observation. The Kaggle title does not by itself establish point-in-time S\&P 500 membership or delisted-stock coverage; both require source-level verification.
+
+\textbf{Price-basis gate.} The current loader searches for an adjusted-close field but silently falls back to a field called \texttt{Close}. This is not acceptable as an undocumented fallback. Inspect the raw CSV schema and dataset documentation. If only \texttt{Close} is supplied, call it \emph{close} (or \emph{split-adjusted close} only if the source establishes that treatment), not adjusted close. Then choose and document one defensible comparison. If the Kaggle field is split-adjusted but not dividend-adjusted, a corresponding SPY \texttt{Close} series (with \texttt{auto\_adjust=False}) may be more comparable than SPY \texttt{Adj Close}; this must be checked against the actual source documentation rather than assumed. Alternatively, rebuild the stock series from a source that supplies consistently adjusted closes. A benchmark on a different return basis may still be retained as a context covariate, but the difference must be stated and the two return series must not be described as harmonised. The exact returned field and corporate-action treatment are part of data provenance, not cosmetic metadata.
+
+\textbf{Benchmark.} SPY is retrieved separately from Yahoo Finance and aligned by date \cite{SPYYahoo}. The primary modelling sample requires a valid benchmark observation, so the asset panel and benchmark are aligned on their common dates; report exactly how many asset-date observations are removed by this alignment. SPY is a market-context feature, not the prediction target. The stock label is calculated from each constituent's own realised-volatility proxy. SPY may contribute $r_{m,t}$ and $RV_{m,t}^{(5)}$ to the stock feature vector, but SPY-derived quantities must never replace $RV_{i,t}$ in the individual-stock target.
+
+\textbf{Retrieval control.} In yfinance, the documented default for price-history calls is currently \texttt{auto\_adjust=True}; the end date is exclusive. If the implementation explicitly extracts \texttt{Adj Close}, call yfinance with \texttt{auto\_adjust=False}, inspect the returned column structure, and record the exact arguments and download timestamp \cite{YFinanceHistory}. Do not assume that a single-ticker download always has a flat column index; test the returned schema.
+
+\textbf{Snapshot control.} Save the exact downloaded raw files and calculate SHA-256 hashes. A Kaggle dataset that updates daily is not reproducible if each run silently downloads a different snapshot. Store download date, dataset handle/version (if available), file sizes, hashes, raw row counts, symbol counts, min/max dates, and parsing rules in a data manifest.
+
+\begin{warningbox}
+\textbf{Survivorship and membership caveat.} The supplied Kaggle dataset's exact point-in-time universe has not yet been demonstrated. Do not assert that it contains only current constituents, nor assert that it includes delisted securities, until the constituent metadata and raw files have been inspected. If the histories represent only currently listed/current constituents and omit delisted firms, the panel is subject to survivorship/selection bias. Shumway documents the importance of omitted delisting returns in historical stock-return databases; that paper motivates the caveat but does not prove the composition of this particular Kaggle snapshot \cite{Shumway1997}.
+\end{warningbox}
+
+\subsection{US loader audit: required code changes}
+
+The current \texttt{Kaggle\_Data\_download.py} has two important issues:
+\begin{enumerate}
+  \item The column search accepts \texttt{"close"} as a fallback when adjusted close is not found. The fallback is not inherently unusable, but it must not silently be labelled adjusted close. Record whether the source field is close, split-adjusted close, or dividend-adjusted close. If the Kaggle source supplies only split-adjusted close, either obtain a comparably treated SPY series or rebuild the stock panel on a consistent adjusted-price basis; otherwise state the basis mismatch and treat benchmark returns only as contextual covariates.
+  \item \texttt{pivot\_table(..., aggfunc="last")} can silently collapse duplicate $(\text{date},\text{ticker})$ rows. Count and inspect duplicates before pivoting. Do not use ``last'' as an undocumented correction policy.
+\end{enumerate}
+
+Also record the count of raw rows lost due to invalid dates, nonnumeric prices, missing values, and duplicate keys. Do not let \texttt{errors="coerce"} followed by \texttt{dropna} hide data-quality failures.
+
+\subsection{Secondary Oslo panel plus OSEBX}
+\label{sec:oslodata}
+
+\textbf{Source.} The Oslo panel is the course-provided adjusted-price workbook \texttt{oslo-stocks-2023-}\allowbreak\texttt{2025.xlsx}, worksheet \texttt{Adjusted Prices} \cite{OsloWorkbook}, with the five instruments identified in the current draft as EQNR, DNB, TEL, NAS, and NHY. Treat the worksheet label as source metadata, not proof that every instrument series has identical corporate-action treatment; record the workbook's readme/source notes and verify the actual columns and values. The draft reports 751 sessions from 2023-01-02 to 2025-12-30; these values must be confirmed by the actual loader and audit output before the report uses them. The file exposed in the current loader is a close-price panel, not an OHLCV feed; do not infer open, high, low, or volume from the adjusted-close values.
+
+\textbf{Benchmark candidate.} Yahoo Finance lists \texttt{OSEBX.OL} as the Oslo B\o rs Benchmark Index (gross-index label in the quote page) \cite{OSEBXYahoo}. Its actual yfinance download coverage and field names must be printed and stored. Do not assume the field \texttt{Adj Close} exists merely because it exists for SPY. The index's reported return basis may differ from an adjusted ETF close; document the exact Yahoo field and do not treat raw benchmark-return levels as directly comparable across markets. If the returned index-level field is \texttt{Close}, document that fact and use the index level consistently. Do not silently relabel a close field as adjusted close.
+
+\textbf{Fallback.} If OSEBX cannot be retrieved over the Oslo workbook dates, the preferred fallback is to omit the external benchmark feature for Oslo and report that limitation. An equal-weighted return series may be explored as a clearly labelled internal reference factor, but it is not an independent market benchmark because it is constructed from the same five stocks being modelled.
+
+\subsection{Independent market experiments}
+
+The panels are analysed independently, with an explicit priority hierarchy:
+\begin{itemize}
+  \item \textbf{Primary Path~B experiment:} individual Kaggle US stocks, with SPY as a date-level benchmark covariate. The main model-selection, final test, and fault-severity analysis are completed here first.
+  \item \textbf{Secondary replication:} the five course-provided Oslo equities, with OSEBX as a candidate date-level benchmark covariate. Run the same target and protocol only if benchmark coverage and positive-event counts support it. Otherwise keep the Oslo work to data-quality description, selected descriptive analyses, and clearly labelled exploratory robustness tests.
+\end{itemize}
+
+Do not pool the US and Oslo rows into a single primary model. Compare within-market reference-to-corrupted performance changes. Do not interpret raw accuracy differences as evidence that one market is easier to predict: the panels differ in sample length, instrument count, composition, data source, benchmark construction, and likely event distribution. In particular, the SPY adjusted-close return and an OSEBX gross-index return may not be constructed identically; benchmark features are used within-market, not as directly comparable levels across the two markets.
+
+\subsection{Reference panel versus error-free panel}
+
+The original files after the documented parsing and audit steps are called the \emph{reference panel}. They are not assumed to be error-free ground truth. Injected faults are known additional perturbations relative to that reference. The clean/reference condition measures performance on the supplied panel; it does not measure performance on a perfectly verified representation of the real market.
+
+\subsection{Data audit contract}
+\label{sec:auditcontract}
+
+For each market, report at least:
+\begin{itemize}
+  \item raw files, source, retrieval date, snapshot hash, and price field;
+  \item date-index uniqueness, chronological order, and date range;
+  \item instrument count and instrument-specific valid observation counts;
+  \item missing cells and missingness by instrument and date;
+  \item nonpositive and nonfinite prices;
+  \item duplicate $(\text{date},\text{instrument})$ keys before pivoting;
+  \item extreme daily returns (reported, not automatically deleted);
+  \item benchmark field, date coverage, and unmatched dates;
+  \item observations lost through warm-up, forward horizon, and instrument eligibility rules.
+\end{itemize}
+
+A missing price before an IPO/listing date is not automatically a bad record. Distinguish structural non-availability from missing observations within an instrument's active history. The audit should report both missingness and historical coverage; a single all-cells-must-be-present Boolean is too crude for a panel.
+
+% ============================================================================
+\section{Observation unit, time convention, and return construction}
+\label{sec:returns}
+
+\subsection{Unit of observation}
+
+\begin{decisionbox}
+The main modelling observation is one instrument-date pair $(i,t)$. The prediction is made after the close of trading session $t$. The features may use only prices and benchmark information available at or before that close. The target compares the instrument's current volatility state at $t$ with its five-session endpoint state at $t+5$; it does not represent every possible intrahorizon threshold crossing.
+\end{decisionbox}
+
+The modelling table is therefore a panel indexed by $(i,t)$ (or equivalently a table with explicit \texttt{date} and \texttt{ticker} columns). A DataFrame containing only SPY and indexed by date is a benchmark-only diagnostic, not the per-stock classification dataset.
+
+\subsection{Daily logarithmic returns}
+
+For a positive adjusted closing-price series $P_{i,t}$:
+\begin{equation}
+  r_{i,t}=\log\!\left(\frac{P_{i,t}}{P_{i,t-1}}\right).
+  \label{eq:logreturn}
+\end{equation}
+Log returns are a standard representation in financial time-series analysis; see Tsay for the broader treatment of financial return series and their statistical properties \cite{Tsay2010}. The corresponding benchmark return is
+\begin{equation}
+  r_{m,t}=\log\!\left(\frac{P_{m,t}}{P_{m,t-1}}\right),
+  \qquad m\in\{\mathrm{SPY},\mathrm{OSEBX}\}.
+\end{equation}
+
+\textbf{Trading-calendar rule.} Returns must be calculated after sorting the common market-date index. Reindex each instrument to the appropriate market calendar before taking differences. If an instrument's price is missing at $t$, the one-session return at $t$ is undefined; the return at $t+1$ is also undefined if it requires the missing $P_{i,t}$. Do not compute a multi-session change and label it as a one-session return. Do not forward-fill raw prices before return calculation in the primary pipeline.
+
+A row that is absent entirely from the downloaded file is not visible as a NaN unless the panel is reindexed to a reference trading calendar. Use a benchmark/exchange calendar or a documented common-date index to determine expected sessions. Do not treat weekends and exchange holidays as missing sessions. If a vendor file omits dates with no observations at all, report that the audit can detect missing cells only after a calendar has been defined; it cannot infer every omitted market session from the price matrix alone.
+
+\subsection{Daily-sampled realised-volatility proxy}
+
+For an $h$-session window, define the cumulative daily-sampled realised-volatility proxy
+\begin{equation}
+  RV_{i,t}^{(h)}=
+  \left(\sum_{k=0}^{h-1}r_{i,t-k}^{2}\right)^{1/2}.
+  \label{eq:rv}
+\end{equation}
+In particular,
+\begin{align}
+  RV_{i,t}^{(5)} &= \left(\sum_{k=0}^{4}r_{i,t-k}^{2}\right)^{1/2},\\
+  RV_{i,t}^{(20)} &= \left(\sum_{k=0}^{19}r_{i,t-k}^{2}\right)^{1/2}.
+\end{align}
+
+The corresponding future five-session quantity, aligned to prediction date $t$, is
+\begin{equation}
+  RV_{i,t}^{+, (5)}=
+  \left(\sum_{k=1}^{5}r_{i,t+k}^{2}\right)^{1/2}.
+  \label{eq:future-rv}
+\end{equation}
+The same definitions apply to the market benchmark.
+
+\begin{warningbox}
+Equation~\eqref{eq:rv} uses daily close-to-close returns. It is a daily-sampled, five-session realised-volatility proxy. It is not the high-frequency realised-volatility estimator based on summing intraday squared returns in the standard high-frequency literature. Andersen et al. develop the realised-volatility framework using high-frequency observations and quadratic variation; cite that work for the broader concept, but state explicitly that this project uses daily data and a five-session proxy \cite{Andersen2003}.
+\end{warningbox}
+
+\subsection{Equation provenance and interpretation}
+
+\begin{itemize}
+  \item Equation~\eqref{eq:logreturn} is the standard continuously compounded/log-return transformation used in financial time-series analysis; Tsay provides a general treatment of return definitions and their statistical properties \cite{Tsay2010}.
+  \item Equation~\eqref{eq:rv} is the project's daily-sampled sum-of-squared-returns proxy. Andersen et al. (2003) provide the broader realised-volatility/quadratic-variation framework using high-frequency intraday observations; their estimator is not identical to the daily five-session proxy used here \cite{Andersen2003}.
+  \item The multiple-horizon feature motivation is related to the empirical volatility persistence represented by HAR-RV; this project does not fit the HAR regression itself \cite{Corsi2009}.
+  \item The quantile state and transition label in Sec.~\ref{sec:target} are project-defined operational labels. They are not a canonical financial-stress classification. The cited VIX transition study is an adjacent example of explicitly auditing regime transitions, not a source for the exact threshold or label used here \cite{GuptaLiu2026}.
+  \item The fault equations in Sec.~\ref{sec:faults} are the project's own controlled interventions, defined algebraically so that their effects are known. The structured-fault benchmark TS-Fault motivates parameterised fault scenarios and paired reference/corrupted evaluation, but it studies time-series forecasting rather than this financial classification problem \cite{Zhao2026TSFault}.
+\end{itemize}
+
+\textbf{No $1/h$ factor in the cumulative quantity.} The square root of the sum gives a cumulative $h$-session magnitude. If the intended feature is average daily RMS return, define it separately:
+\begin{equation}
+  \widetilde{RV}_{i,t}^{(h)}=
+  \left(\frac{1}{h}\sum_{k=0}^{h-1}r_{i,t-k}^{2}\right)^{1/2}.
+  \label{eq:dailyized-rv}
+\end{equation}
+Use $RV^{(5)}$ consistently for the five-session state/label. Use the dailyised form in a cross-horizon ratio so that a five-day and twenty-day window are on comparable per-session scales. Do not interchange Eqs.~\eqref{eq:rv} and \eqref{eq:dailyized-rv} without stating which is used.
+
+\subsection{Warm-up and invalid windows}
+
+A feature requiring 20 valid consecutive daily returns is unavailable until 20 such returns have been observed. The initial warm-up rows are not imputed. A missing input within a rolling window makes that rolling statistic unavailable under the primary rule. The eventual engineered feature matrix may use a training-fitted imputer, but the raw price series is not silently repaired.
+
+% ============================================================================
+\section{Target construction: non-elevated to elevated volatility}
+\label{sec:target}
+
+\subsection{Per-instrument threshold}
+
+For each instrument $i$, estimate a training-period quantile
+\begin{equation}
+  q_{i,\tau}=Q_{\tau}\!\left(
+  \left\{RV_{i,s}^{(5)}:s\in\train,\; RV_{i,s}^{(5)}\text{ valid}\right\}
+  \right),
+  \label{eq:threshold}
+\end{equation}
+where $Q_{\tau}$ denotes the empirical $\tau$-quantile. The current proposal is
+\begin{equation}
+  \tau=0.75\quad\text{(primary)},\qquad
+  \tau=0.80\quad\text{(predeclared sensitivity analysis)}.
+\end{equation}
+
+The threshold is estimated separately for each stock from the training period only, then frozen for validation, test, and fault-injection experiments. Record the quantile interpolation convention (for example, the linear interpolation method used by the selected NumPy/pandas version) and software version so that finite-sample quantiles are reproducible; NumPy documents the available quantile methods and its default linear interpolation convention \cite{NumPyQuantileDocs}. Require $q_{i,\tau}$ to be finite and strictly positive; if it is zero or undefined, exclude that instrument under a predeclared rule rather than silently adding an arbitrary epsilon to the label threshold. This is an operational regime definition, not a universal definition of financial stress. The choice is motivated by the need for instrument-relative regimes and must be justified as a design choice, not presented as a canonical threshold. Recent work on VIX-regime classification explicitly evaluates transition categories and persistence baselines, but uses a different instrument, threshold, and prediction design \cite{GuptaLiu2026}.
+
+\subsection{Current state and eligible samples}
+
+Define the high-volatility indicator
+\begin{equation}
+  S_{i,t}=\mathbf{1}\!\left[RV_{i,t}^{(5)}>q_{i,\tau}\right].
+  \label{eq:state}
+\end{equation}
+The primary model is conditional on the instrument being currently non-elevated:
+\begin{equation}
+  \mathcal{D}_{\mathrm{eligible}}=
+  \left\{(i,t):RV_{i,t}^{(5)}\le q_{i,\tau}\right\}.
+\end{equation}
+The positive label is
+\begin{equation}
+  \boxed{
+  y_{i,t}=\mathbf{1}\!\left[RV_{i,t}^{+,(5)}>q_{i,\tau}\right],
+  \qquad (i,t)\in\mathcal{D}_{\mathrm{eligible}}.
+  }
+  \label{eq:target}
+\end{equation}
+Thus:
+\begin{itemize}
+  \item $y_{i,t}=1$: the stock is non-elevated at the prediction time and its realised volatility over the next five sessions exceeds its instrument-specific training threshold;
+  \item $y_{i,t}=0$: the stock is non-elevated at the prediction time and remains at or below that threshold over the next five sessions.
+\end{itemize}
+
+This is an endpoint transition: it compares the state at $t$ with the state at $t+5$, where the latter is based on the five returns $r_{i,t+1},\ldots,r_{i,t+5}$. It does not label a transient high-volatility episode that occurs at an intermediate date and has subsided by $t+5$. If the intended question were instead whether the threshold is crossed at any point during $t+1,\ldots,t+5$, a different path-dependent target would be required.
+
+The eligible population is defined using the reference (unmodified) estimate of the current state. This makes the primary experiment a conditional robustness study: it asks how well the classifier performs on observations that are truly non-elevated under the reference panel when their input histories are corrupted. It does not test whether a separate live gate can correctly identify eligible dates from corrupted observations. End-to-end gate reliability would be a distinct optional experiment and must not be conflated with classifier robustness.
+
+Use the term \emph{non-elevated-to-elevated} rather than ``calm-to-high'' unless the author explicitly defines ``calm'' as the entire below-quantile region. A 75th-percentile split groups ordinary and relatively quiet observations together; it does not imply that every below-threshold observation is economically calm. The quantile threshold is a project-specific operational definition, not a canonical regime boundary.
+
+\subsection{Four-state diagnostic table}
+
+Before applying the eligibility restriction, tabulate the four possible transitions:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+ & Future non-elevated & Future elevated \\
+\midrule
+Current non-elevated & NE$\rightarrow$NE & NE$\rightarrow$E \\
+Current elevated & E$\rightarrow$NE & E$\rightarrow$E \\
+\bottomrule
+\end{tabular}
+\end{center}
+The classifier is trained only on current non-elevated observations; the four-state table is a diagnostic of the full transition structure. It makes the eligibility restriction and the discarded high-to-low/high-to-high cases visible. Values exactly equal to $q_{i,\tau}$ are assigned to the non-elevated state because the elevated indicator uses a strict $>$ comparison; report this convention explicitly.
+
+\subsection{Threshold and eligibility safeguards}
+
+\begin{itemize}
+  \item Estimate $q_{i,\tau}$ using only valid training-period $RV_{i,t}^{(5)}$ values.
+  \item Set a minimum number of valid training observations per instrument before a per-instrument threshold is considered reliable. \todo{Predeclare the minimum, e.g. compare 126 and 252 valid training sessions as a sensitivity check; do not choose it by inspecting test scores.}
+  \item Do not silently replace a stock-specific threshold with a pooled or market-wide threshold when the stock has insufficient data. Exclude the instrument under the predeclared rule and report the exclusion.
+  \item If the positive class is too sparse, diagnose feasibility using training/validation data. Do not lower $\tau$, change the horizon, or redefine the target after inspecting test outcomes.
+  \item Report test-set class balance and event counts as evaluation results, not as knobs for retuning the definition.
+  \item Because the threshold is per instrument, report the distribution of $q_{i,\tau}$ across instruments and identify any instrument excluded by the minimum-history rule.
+  \item If the Oslo test period contains too few positive episodes for informative uncertainty estimates, do not force a model ranking; report it as a low-power replication.
+
+\end{itemize}
+
+% ============================================================================
+\section{Feature specification}
+\label{sec:features}
+
+\subsection{Core feature set}
+
+The minimum feature set is deliberately small. Multi-horizon volatility summaries are motivated by the established empirical persistence of realised volatility and the heterogeneous autoregressive (HAR-RV) framework; the present project uses these as classifier inputs, not as a fitted HAR forecasting model \cite{Corsi2009}. All features are computed from data available at or before the close of prediction date $t$.
+
+\begin{longtable}{p{2.8cm}p{6.2cm}p{5.8cm}}
+\caption{Proposed core causal features. Definitions are to be implemented and unit-tested before model fitting.}\label{tab:features}\\
+\toprule
+\textbf{Feature} & \textbf{Definition} & \textbf{Role}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Feature} & \textbf{Definition} & \textbf{Role}\\
+\midrule
+\endhead
+Latest stock return & $r_{i,t}$ & Most recent individual-stock movement; records a contemporaneous shock.\\
+5-session stock volatility & $\widetilde{RV}_{i,t}^{(5)}$ as defined in Eq.~\eqref{eq:dailyized-rv} & Short-horizon dailyised RMS return.\\
+20-session stock volatility & $\widetilde{RV}_{i,t}^{(20)}$ as defined in Eq.~\eqref{eq:dailyized-rv} & Medium-horizon dailyised RMS return.\\
+Relative volatility ratio & $Q_{i,t}=\widetilde{RV}_{i,t}^{(5)}/(\widetilde{RV}_{i,t}^{(20)}+\epsilon)$ & Whether recent volatility is high or low relative to the longer window.\\
+Distance to stock threshold & $U_{i,t}=RV_{i,t}^{(5)}/q_{i,\tau}$ & Instrument-relative proximity to the frozen training threshold; available at prediction time.\\
+Benchmark return & $r_{m,t}$ & Same-date market-context return (SPY for US; OSEBX candidate for Oslo).\\
+Benchmark volatility & $\widetilde{RV}_{m,t}^{(5)}$ & Market-context volatility measure.\\
+\bottomrule
+\end{longtable}
+
+The forward quantity $RV_{i,t}^{+,(5)}$ and the label $y_{i,t}$ are never members of the feature matrix. This is a strict no-leakage rule. The ratio $U_{i,t}$ uses only the training-fitted threshold $q_{i,\tau}$ and the current, observed $RV_{i,t}^{(5)}$; the threshold is frozen before validation/test evaluation. This scale-normalised feature is particularly relevant because the primary classifier pools instruments without including ticker identity. The feature epsilon in $Q_{i,t}$ must be fixed in the experiment configuration and scaled consistently with the feature units; it is not a tunable test-set parameter.
+
+For strict wording, distinguish the timestamp of the raw measurement from the timestamp of a fitted normalisation parameter: $r_{i,t}$ and $RV_{i,t}^{(h)}$ are computed from data available through $t$, whereas $q_{i,\tau}$ is estimated from the training block. Thus $U_{i,t}$ is a training-normalised feature, not a threshold that was historically known at every training date. The intended evaluation is a blocked hold-out experiment with a threshold learned before validation/test; see the point-in-time qualification in Sec.~\ref{sec:split}.
+
+\subsection{Optional extension: cross-sectional volatility dispersion}
+\label{sec:dispersion}
+
+The proposed cross-sectional feature asks whether the distribution of volatility across stocks contains information beyond an individual stock's own volatility and the market benchmark. A simple form is
+\begin{equation}
+  D_t^{\mathrm{raw}}=\left[\frac{1}{N_t-1}\sum_{i\in\mathcal{I}_t}
+  \left(RV_{i,t}^{(5)}-\overline{RV}_t^{(5)}\right)^2\right]^{1/2},
+  \label{eq:dispersion}
+\end{equation}
+where $\mathcal{I}_t$ is the set of instruments with valid observations at date $t$, $N_t=|\mathcal{I}_t|\geq2$, and $\overline{RV}_t^{(5)}$ is the cross-sectional mean. This is the sample standard deviation (the convention used by pandas with \texttt{ddof=1}); record $N_t$ and the standard-deviation convention. This is cross-sectional dispersion of realised volatility; it is not conventionally called ``volatility-of-volatility,'' which generally refers to variability of a volatility process through time.
+
+This feature is not a novel concept by itself. Related work studies cross-sectional return dispersion and its relation to future firm/portfolio volatility, cross-sectional dispersion in GARCHX models, and its use in forecasting aggregate market volatility \cite{ConnollyStivers2006,HwangSatchell2005,Byun2016}. Those studies generally use dispersion in returns or other related cross-sectional quantities; they do not establish that Eq.~\eqref{eq:dispersion} improves the present individual-stock transition classifier. The present feature should therefore be treated as a motivated exploratory extension, not a novelty claim.
+
+\textbf{Implementation safeguards:}
+\begin{itemize}
+  \item Record $N_t=|\mathcal{I}_t|$ for every date. A change in the cross-section can change $D_t$ even if the underlying assets do not change.
+  \item Predefine a minimum cross-sectional coverage rule for each date.
+  \item Do not compute $D_t$ using future values or imputed values fitted from the test distribution.
+  \item A log-scale alternative, $D_t^{\log}=\sd_i[\log(\widetilde{RV}_{i,t}^{(5)}+\epsilon)]$, may be included as a predeclared sensitivity measure; do not choose whichever version wins on the test set.
+  \item Since $D_t$ is shared by all stocks on a date, it is a date-level feature repeated across rows. It does not create new independent observations.
+  \item The US panel may support a meaningful cross-section if coverage is sufficiently broad. The Oslo panel has only five stocks; its date-wise standard deviation is based on a very small cross-section and should be omitted from the Oslo minimum model or treated strictly as an exploratory sensitivity feature. Do not describe the US and Oslo dispersion estimates as equally precise.
+  \item Raw dispersion mixes persistent differences in each stock's usual volatility with date-specific changes. If the optional feature is tested, compare it with a predeclared within-stock normalised version; do not interpret raw dispersion as a pure market-stress shock.
+\end{itemize}
+
+\subsection{Features excluded from the core experiment}
+
+\begin{itemize}
+  \item Rolling PCA/SVD variance shares and sector-ETF geometry: excluded to avoid carrying forward the earlier sector-ETF project and because they add another feature-design axis.
+  \item Wavelet, FFT, and spectral entropy features: optional future work only. A wavelet extension needs a separately justified causal transform and careful boundary handling; it is not required to test the core fault-injection question. The 2026 wavelet-spillover paper is adjacent volatility-forecasting literature, not a reason to add wavelets to this minimum project \cite{LiuWavelet2026}.
+  \item VIX: excluded because it introduces options-implied volatility and a new information source beyond historical price inputs.
+  \item Sector ETFs: excluded by design; no sector-classification side problem is required.
+\end{itemize}
+
+% ============================================================================
+\section{Chronological splitting and preprocessing}
+\label{sec:split}
+
+\subsection{Date-level split}
+
+Use chronological partitions based on unique trading dates, provisionally 70\% training, 15\% validation, and 15\% test. All instruments observed on one date belong to the same partition. A random row-wise split is not acceptable because it places observations from the same date and overlapping time windows in different partitions.
+
+\subsection{Forward-label purge}
+
+A sample at prediction date $t$ uses returns through $t+5$ in its label. Assign samples to a split by their prediction date, and exclude the final $H=5$ prediction dates of each split if their forward label window would extend beyond that split's date interval.
+
+Past feature lookbacks for early validation/test predictions may use observations from the preceding calendar period, because those observations would have been known at the prediction time. They must not use observations after $t$. It is not necessary to purge the first five validation/test prediction dates merely because their historical feature windows overlap the previous period; the critical restriction is that a training or validation label must not use future returns from the next partition. This is a chronological hold-out with a forward-label purge, not purged $K$-fold cross-validation. López de Prado discusses purging and embargo for more general financial cross-validation schemes; those procedures are not implemented in this minimum design \cite{LopezDePrado2018}.
+
+\begin{warningbox}
+The earlier draft proposed purging both the last five dates of one partition and the first five dates of the next. The first-five purge is not required under the prediction-date assignment rule above. If a different split convention is implemented, state it explicitly and verify which label windows cross which boundaries. The key invariant is: every sample's full forward target window remains inside its assigned partition.
+\end{warningbox}
+
+\subsection{Training-only transformations}
+
+\begin{itemize}
+  \item Per-instrument thresholds $q_{i,\tau}$: fit on training dates only.
+  \item Imputer: fit on the training feature matrix only.
+  \item StandardScaler: fit on training data only; transform validation/test with the frozen training parameters.
+  \item Feature selection and model/hyperparameter selection: training/validation only.
+  \item Classification threshold: fixed at 0.5 or selected using a predeclared validation rule; never selected using test labels.
+\end{itemize}
+
+These rules follow standard leakage-prevention practice in scikit-learn: split first, fit transformations only on training data, and reuse the fitted transformations on subsequent data \cite{ScikitLearnPitfalls}.
+
+\begin{warningbox}
+\textbf{Point-in-time nuance for $q_{i,\tau}$.} The raw return and rolling-volatility measurements for a sample at date $t$ use observations no later than $t$. However, the fixed threshold $q_{i,\tau}$ is estimated from the entire training block and is therefore a fitted training parameter; for early dates within that training block it was not literally known at the historical date $t$. This is acceptable for the stated blocked train/validation/test experiment: the threshold is learned from the training block and frozen before any validation/test prediction. It is not a simulation of an online system that recalibrates its regime threshold at every historical date. If the project later claims point-in-time historical deployment simulation, replace the fixed threshold in training with an expanding/rolling threshold using only observations available before each $t$, and define the associated changing target carefully. Do not describe the current fixed-training-quantile construction as fully point-in-time for every training row.
+\end{warningbox}
+
+\subsection{Missing-data handling}
+
+Do not forward-fill raw prices by default. For a missing raw price, leave the corresponding one-session returns and rolling features undefined under the rule in Sec.~\ref{sec:returns}. For the model matrix, use a declared training-fitted imputation policy on derived features (for example, training median per feature) and explicit missingness-indicator columns.
+
+Construct the indicator matrix explicitly from the pre-imputation feature matrix, with one fixed indicator column per feature (for example, $M_{j}=\mathbf{1}[X_j\text{ is missing}]$). Then fit the imputer on the training feature matrix only and reuse its stored statistics for validation/test and corrupted test inputs. This avoids a subtle default of \texttt{SimpleImputer(add\_indicator=True)}: it adds indicators only for features that were missing during \texttt{fit}; a feature that first becomes missing in validation/test may therefore have no corresponding generated indicator. The official documentation describes this behaviour; \texttt{MissingIndicator(features="all")} or explicit mask construction provides a fixed feature schema \cite{SimpleImputerDocs,MissingIndicatorDocs}.
+
+The imputer must never use test-distribution statistics. Missingness itself can be informative, but the model should receive only indicators derivable from the observed corrupted input. The synthetic injection mask is evaluation ground truth, not a model feature. For the main augmentation comparison, fit the imputer and scaler on the clean training feature matrix once, then apply those same fitted transforms to clean and corrupted views. This keeps the preprocessing intervention fixed while testing the effect of adding corrupted views to model training.
+
+\subsection{Scaling}
+
+Standardise continuous features for logistic regression and the MLP using training-set means and standard deviations; the scaler stores the training means and scales for subsequent transforms \cite{StandardScalerDocs}. The random forest does not require standardisation, but receives the same underlying feature definitions. If the model-specific preprocessing differs, record it; fairness requires identical samples and information, not necessarily identical numerical transformations.
+
+\subsection{Panel pooling}
+
+The primary classifier is a pooled model trained on the $(i,t)$ rows within one market, with no ticker identifier in the minimum feature set. Per-instrument thresholds make the target stock-relative. This assumes that a common mapping from the selected normalised features to the transition outcome is useful across the included stocks. Report the pooled design explicitly. Do not imply that the nominal row count is the number of independent observations.
+
+If instruments have materially different history lengths or valid-observation counts, the pooled objective gives more weight to instruments contributing more eligible rows. Report per-instrument row counts and positive-event contributions. Do not silently rebalance instruments. An equal-instrument weighting scheme may be tested as a separate, predeclared sensitivity analysis, but it changes the empirical objective and should not be introduced after inspecting test results.
+
+\todo{After auditing coverage, decide and freeze the minimum per-instrument training history rule. If instrument identity is later added, treat it as a separate ablation and justify the encoding; it is not part of the minimum feature set.}
+
+% ============================================================================
+\section{Feasibility analysis and Part A deliverables}
+\label{sec:feasibility}
+
+Part A must establish the data in context: what a sample is, what the features are, what the classes are, how balanced they are, how examples look, how preprocessing is performed, and how the data are split \cite{UiOProject3}. The current implementation has begun data inspection, but the panel target and class diagnostics are not complete.
+
+\subsection{Feasibility table to fill from actual runs}
+
+\begin{longtable}{p{4.0cm}p{4.1cm}p{5.7cm}}
+\caption{Required per-market feasibility outputs.}\label{tab:feasibility}\\
+\toprule
+\textbf{Quantity} & \textbf{US panel} & \textbf{Oslo panel}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Quantity} & \textbf{US panel} & \textbf{Oslo panel}\\
+\midrule
+\endhead
+Raw dates & \todo{actual} & \todo{actual}\\
+Raw instruments & \todo{actual} & 5 reported; verify\\
+Raw panel shape & \todo{actual} & \todo{actual}\\
+Start/end dates & \todo{actual} & \todo{actual}\\
+Price-field basis & \todo{adjusted close verification} & \todo{workbook metadata}\\
+Missing cells and fraction & \todo{actual} & \todo{actual}\\
+Invalid/nonpositive prices & \todo{actual} & \todo{actual}\\
+Duplicate date/instrument keys & \todo{actual} & \todo{actual}\\
+Benchmark match fraction & SPY: \todo{actual} & OSEBX: \todo{actual}\\
+Usable instrument-date rows & \todo{actual} & \todo{actual}\\
+Eligible rows by split & \todo{actual} & \todo{actual}\\
+Positive rows by split & \todo{actual} & \todo{actual}\\
+Positive date count by split & \todo{actual} & \todo{actual}\\
+Contiguous positive-label runs & \todo{actual} & \todo{actual}\\
+Excluded instruments and reasons & \todo{actual} & \todo{actual}\\
+\bottomrule
+\end{longtable}
+
+\subsection{Event-count diagnostics}
+
+For each split, report at least:
+\begin{itemize}
+  \item total eligible $(i,t)$ rows;
+  \item positive and negative rows;
+  \item distinct dates containing at least one positive row;
+  \item number of contiguous positive-label runs per instrument;
+  \item number of instruments with at least one positive row.
+\end{itemize}
+
+A positive-label run is a descriptive cluster of adjacent prediction dates for one instrument; it is not automatically an independent economic event. The five-session future windows overlap, so multiple positive rows may refer to overlapping future intervals. Also report the number of distinct dates containing at least one positive sample and the number of instruments contributing positives. State this when discussing effective sample size. The positive prevalence is the precision-recall no-skill reference level and must be reported alongside AP.
+
+\subsection{Feasibility decision rule}
+
+Do not introduce a test-driven rule such as ``if test positives are below 5\%, lower the quantile.'' Instead:
+\begin{enumerate}
+  \item inspect training and validation positive rates and run counts;
+  \item decide whether the planned model comparison is supportable using a rule specified before the final test evaluation;
+  \item if support is inadequate, revise the target using training/validation only, document the reason, and freeze the new specification before test evaluation;
+  \item if the held-out test still contains few independent positive runs, report wide uncertainty or an inconclusive result. Do not retune against the test set.
+\end{enumerate}
+
+\subsection{Current Part A status}
+
+\begin{longtable}{P{4.2cm}P{2.0cm}P{7.7cm}}
+\toprule
+\textbf{Task} & \textbf{Status} & \textbf{Evidence required}\\
+\midrule
+Oslo loader and basic audit & Implemented, verify & Actual audit output, source metadata, missingness interpretation.\\
+Kaggle loader and long-to-wide pivot & Implemented, revise & Strict adjusted-close handling; duplicate-key audit; invalid-row counts.\\
+SPY benchmark retrieval & Partly implemented & Actual yfinance schema, exact date coverage, adjustment settings.\\
+OSEBX benchmark retrieval & TODO & Actual yfinance schema, dates, missing sessions, field basis.\\
+Per-instrument return panel & TODO & Date-by-ticker return matrix with missing intervals preserved.\\
+Per-instrument $RV^{(5)}$ and $RV^{(20)}$ & TODO & Unit tests against hand-calculated examples.\\
+Per-instrument $q_i$ threshold & TODO & Training-only fit and frozen thresholds.\\
+Transition label and eligibility & TODO & Four-state table and conditional binary target.\\
+Class-balance feasibility report & TODO & Counts by asset, date and split.\\
+Date-level split and forward purge & TODO & Exact dates and assertion that no label horizon crosses partition.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Path B(a): explicit reporting checklist}
+\label{sec:pathba}
+
+The course prompt asks the data section to identify the source and context, sample unit, features, classes and class balance, show examples, describe preprocessing and explain the train/validation/test split \cite{UiOProject3}. The following items should be completed from actual outputs:
+
+\begin{enumerate}
+  \item \textbf{Data provenance and context:} cite the Kaggle handle and snapshot date/hash; identify the exact price field; document the SPY retrieval arguments; identify the Oslo workbook and worksheet; verify the OSEBX source field and coverage.
+  \item \textbf{Sample:} one row represents one eligible stock-date pair $(i,t)$, with prediction after the close at $t$. Report raw panel dimensions and final eligible rows separately.
+  \item \textbf{Features:} provide a table of every feature, its formula, its information timestamp, and whether it is stock-specific or benchmark-level. State explicitly that no forward quantity is in $X$.
+  \item \textbf{Classes:} define the binary non-elevated-to-elevated endpoint transition. Report the four-state diagnostic table and positive/negative counts by split and market.
+  \item \textbf{Examples:} show a small table of real feature rows and the associated reference target, with dates/tickers anonymised only if required by source restrictions. Do not invent example values.
+  \item \textbf{Preprocessing:} explain chronological ordering, return calculation, rolling-window warm-up, missing-value policy, benchmark alignment, per-stock threshold fitting, feature scaling, and any class weighting.
+  \item \textbf{Representation:} the LR, RF, and tabular MLP use a two-dimensional matrix $X\in\mathbb{R}^{n\times p}$; no image flattening or sequence reshaping is required. The binary target remains a one-dimensional vector $y\in\{0,1\}^n$; one-hot encoding is not required for these binary classifiers.
+  \item \textbf{Split:} report exact chronological date boundaries, purge dates, row counts, unique dates, positive counts, and positive episodes. State that the validation data are used for selection and the test data are used once after freezing the pipeline.
+\end{enumerate}
+
+\begin{warningbox}
+The five-stock Oslo panel may be too small in the time dimension to support precise inference for rare transition events, even if stacking five instruments produces several thousand rows. If its held-out positive episodes are few, present Oslo as a limited replication/feasibility study and show uncertainty; do not let the nominal row count imply thousands of independent events.
+\end{warningbox}
+
+% ============================================================================
+\section{Models and baselines}
+\label{sec:models}
+
+\subsection{Required classifiers}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{p{3.3cm}p{4.0cm}X}
+\toprule
+\textbf{Model} & \textbf{Role} & \textbf{Implementation note}\\
+\midrule
+Logistic regression & Linear probabilistic baseline & Use a training-fitted scaler. Record regularisation strength and class-weight/sample-weight handling.\\
+Random forest & Nonlinear tree ensemble & Record number of trees, depth, leaf-size constraints, feature sampling, and random seed. Scaling is not required.\\
+Feed-forward neural network & Nonlinear neural benchmark & Small one- or two-hidden-layer MLP; reuse the verified Project 2 code if appropriate. Record architecture, activation, optimiser, learning rate, regularisation, epoch limit, and stopping rule.\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+This satisfies the course requirement of at least three methods, including a neural network and a tree-based ensemble \cite{UiOProject3}. The random-forest reference is Breiman's original formulation; the MLP is standard feed-forward supervised learning \cite{Breiman2001,Goodfellow2016}. Scikit-learn is an acceptable implementation source, provided its use is documented \cite{Pedregosa2011}.
+
+\subsection{Correct state-persistence baseline}
+
+Because the supervised sample is restricted to dates with $S_{i,t}=0$, the simplest persistence reference is
+\begin{equation}
+  \widehat{y}_{i,t}^{\mathrm{persist}}=0
+  \quad\text{for all }(i,t)\in\mathcal{D}_{\mathrm{eligible}}.
+\end{equation}
+This baseline predicts that the current non-elevated state persists over the forecast horizon. It may achieve high accuracy if transitions are rare, but its transition recall is zero. Report its confusion matrix and class-sensitive metrics. For probability-based metrics, also report a no-information constant-probability reference using the training prevalence $\hat p=\pi_{\mathrm{train}}$; this avoids assigning zero probability to outcomes that do occur. Do not write $\widehat y_{t+1}=y_t$ as the baseline for this target: that equation does not encode the current-state persistence rule because $y_t$ itself is a future-transition label.
+
+A one-feature rule based on the distance of $RV_{i,t}^{(5)}$ from $q_i$ may be added as an optional transparent benchmark, with its threshold selected using validation data only.
+
+\subsection{Hyperparameter selection}
+
+Use a modest, predeclared search space and the validation period for selection. The exact grid remains a TODO until the model implementations are inspected. At minimum report:
+\begin{itemize}
+  \item the candidate values for each model;
+  \item the validation metric used to select the configuration;
+  \item the selected configuration and random seed;
+  \item training and inference time;
+  \item the number of trainable parameters for the MLP (and the corresponding model-size description for RF/LR).
+\end{itemize}
+
+Avoid very large grids. The point is an equal-terms comparison and controlled robustness analysis, not exhaustive architecture search.
+
+% ============================================================================
+\section{Fault-injection methodology}
+\label{sec:faults}
+
+\subsection{Reference inputs and clean labels}
+
+Construct the per-instrument thresholds, current-state eligibility mask, and labels once from the unmodified reference panel. Preserve the eligible sample index and labels throughout all corruption experiments. Inject faults only into the separate price-input copy used to calculate features. Never inject corruption into the reference copy used to define thresholds, eligibility, or target outcomes. Consequently, the reference and corrupted conditions are evaluated on the same instrument-date samples. This controlled conditioning is appropriate for isolating feature corruption, but a production system that must first decide whether an observation is eligible would require an additional gate-level evaluation.
+
+The C++ injector may return an event mask/log for evaluation and debugging. The classifier must not receive that oracle mask. It may receive only indicators that a deployed pipeline could derive from the observed corrupted data.
+
+\subsection{Core fault scenarios}
+
+\begin{longtable}{p{2.6cm}p{5.4cm}p{5.8cm}}
+\caption{Core parameterized fault scenarios. Exact severity values must be frozen in the experiment protocol before test evaluation.}\label{tab:faults}\\
+\toprule
+\textbf{Fault} & \textbf{Mathematical operation} & \textbf{Mechanism under investigation}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Fault} & \textbf{Mathematical operation} & \textbf{Mechanism under investigation}\\
+\midrule
+\endhead
+Transient price spike & For a selected $(i,t)$, set $P'_{i,t}=P_{i,t}\exp(\delta_i)$ for one observation, while subsequent input prices revert to the reference path. Set $\delta_i=\pm a\,s_i$, where $s_i$ is a training-only estimate of the stock's daily log-return scale and $a$ is a specified severity multiplier. & Produces an artificial entry return and a reversal return: ideally $r'_{i,t}=r_{i,t}+\delta_i$ and $r'_{i,t+1}=r_{i,t+1}-\delta_i$. These can be amplified in squared-return volatility features.\\
+\addlinespace
+Stale-price block & For $L$ sessions, set $P'_{i,t+j}=P_{i,t-1}$, $j=0,\ldots,L-1$. & Produces artificial zero returns during the stale interval and a catch-up movement when the reference series resumes.\\
+\addlinespace
+Missing-price block & Set $P'_{i,t:t+L-1}=\mathrm{NaN}$ for a selected contiguous block. Preserve missingness through return and rolling-feature construction. & Makes affected returns/rolling features undefined; tests missing-data propagation and the declared imputation/indicator policy.\\
+\bottomrule
+\end{longtable}
+
+\textbf{Provisional severity grids:}
+\begin{itemize}
+  \item Price spike: $a\in\{3,5,10\}$ training-standard-deviation units; use a fixed number or rate of non-overlapping events per instrument and report the realized count.
+  \item Stale block: $L\in\{3,5,10\}$ trading sessions.
+  \item Missing block: $L\in\{1,3,5\}$ trading sessions.
+\end{itemize}
+
+These values are starting candidates, not universal standards. Inspect the training return distribution and adjust the severity grid before freezing the test protocol. Do not tune severity by looking for the largest test-performance drop. Also predeclare the event density/coverage (e.g. a fixed number of non-overlapping events per instrument or a fixed percentage of eligible instrument histories), the instrument-selection rule, and whether the benchmark is excluded from the primary stock-fault scenarios. Keep the selected event locations identical across model architectures within a paired replicate. Without a fixed event density, a ``severity'' comparison is confounded by how many cells were altered.
+
+\subsection{Optional benchmark-alignment fault}
+
+If time permits, test a one-session benchmark lag:
+\begin{equation}
+  r'_{m,t}=r_{m,t-1},\qquad
+  RV'_{m,t}=RV_{m,t-1}^{(5)}.
+\end{equation}
+This represents stale or misaligned benchmark context. Use a lag only; do not shift benchmark information forward in a way that leaks future values into date $t$. Treat this scenario separately from stock-price corruption.
+
+\subsection{Negative control: multiplicative price rescaling}
+
+For a constant $c_i>0$ applied to every price of one instrument,
+\begin{equation}
+  P'_{i,t}=c_iP_{i,t},
+\end{equation}
+then
+\begin{equation}
+  \log\!\left(\frac{P'_{i,t}}{P'_{i,t-1}}\right)
+  =\log\!\left(\frac{c_iP_{i,t}}{c_iP_{i,t-1}}\right)
+  =r_{i,t}.
+\end{equation}
+Thus return- and volatility-based features must be invariant up to numerical tolerance. This is a metamorphic test of the feature pipeline, not a realistic fault scenario.
+
+\subsection{Experimental conditions: isolate interventions}
+
+\begin{enumerate}
+  \item \textbf{Reference condition:} train on unmodified training inputs and evaluate on unmodified test inputs.
+  \item \textbf{Corrupted-input condition:} use the same reference-trained model and test samples, but inject corruption into the test-period price inputs before recomputing features. Keep labels unchanged.
+  \item \textbf{Fault-augmented training condition:} train a separate model using a declared mixture of reference and synthetically corrupted training-input views, with the reference labels unchanged. Evaluate on unmodified and independently corrupted test inputs.
+  \item \textbf{Quality-indicator or detect/repair condition (optional):} test this separately from augmentation. Quality flags must be computed from observable corrupted inputs, not copied from the known injection mask.
+\end{enumerate}
+
+Do not combine data augmentation and quality-indicator features into one condition and then attribute any improvement to either mechanism. If both are studied, use a factorial or sequential ablation that isolates each intervention.
+
+\subsection{Training augmentation and sample weights}
+
+If multiple corrupted variants are created from the same original $(i,t)$ sample, they are not independent new labels. Avoid inadvertently giving heavily augmented samples disproportionate weight. Either create one corrupted view per selected training sample per epoch/replicate or define sample weights so that each original sample has a controlled total contribution.
+
+A fault injected at one raw-price date can alter several downstream feature rows because the rolling return and volatility windows overlap. The event log therefore records the raw intervention, while a separate propagation map should record which instrument-date feature rows changed. Do not equate one injected price event with one affected classifier sample.
+
+For a one-price spike at date $t$, the one-session returns at $t$ and $t+1$ are altered; rolling $RV^{(5)}$ and $RV^{(20)}$ features can remain affected for several subsequent prediction dates (up to the relevant lookback length, subject to missingness and window validity). A missing price at $t$ makes both adjacent one-session returns undefined and can invalidate each rolling window containing either return. The exact propagation map must be computed from before/after feature matrices rather than inferred only from the raw event count.
+
+If fault events are serialized as JSON, encode a missing corrupted value as JSON \texttt{null} (with an explicit fault-type field), not the non-standard token \texttt{NaN}. IEEE NaN remains appropriate inside the numerical matrix, but JSON output should remain standards-compliant.
+
+For fault-augmented training, use a separate corrupted training-input copy. Recompute validation and test features from their own reference/corruption scenarios; do not allow synthetic training corruptions to contaminate the historical warm-up values used to form validation or test features.
+
+\subsection{Fault realism and scope}
+
+Synthetic faults are controlled perturbations of the reference price panel. They do not reproduce every real vendor failure. In particular, adjusted-close data cannot fully reconstruct all corporate-action processing errors, exchange-feed outages, or raw OHLCV inconsistencies. Finance-specific outlier treatment is a recognised methodological issue \cite{Adams2019}; missing financial-data research also shows that missingness can be structured rather than random, although the cited RFS paper focuses on firm fundamentals rather than daily price quotes \cite{Bryzgalova2025}.
+
+% ============================================================================
+\section{C++17 FaultInjector and Python integration}
+\label{sec:cpp}
+
+\subsection{Why C++ belongs here}
+
+The C++ component should implement deterministic, parameterized fault injection and event logging. The classifier training remains in Python. Reimplementing an MLP in C++ is not needed to answer the research question and would expand the scope without improving the fault-injection study.
+
+\subsection{Data contract}
+
+Input: a date-by-instrument numerical matrix $P\in\mathbb{R}^{T\times N}$, plus a date index, instrument identifiers, a fault configuration, and a seed. Missing values are represented as IEEE NaN. The implementation must reject invalid dimensions and must not silently alter cells outside the event log.
+
+Suggested conceptual interface:
+\begin{lstlisting}[style=cpp]
+struct FaultConfig {
+    FaultType type;
+    std::uint64_t seed;
+    double severity;
+    std::size_t event_count;
+    std::size_t block_length;
+};
+
+struct FaultEvent {
+    std::size_t row;
+    std::size_t column;
+    double original_value;
+    double corrupted_value;
+    std::string reason;
+};
+
+struct FaultResult {
+    Eigen::MatrixXd corrupted_prices;
+    std::vector<FaultEvent> events;
+};
+\end{lstlisting}
+
+The exact interface may change during implementation, but the semantics must remain stable and documented.
+
+\subsection{Libraries and boundary}
+
+Use C++17, Eigen for matrix operations \cite{Eigen}, and pybind11 for Python bindings. pybind11 documents automatic conversions between compatible NumPy arrays and Eigen dense types; passing an ordinary Eigen matrix can involve a copy. Do not claim zero-copy integration unless the actual binding uses a compatible reference/map type and its memory-layout constraints have been tested \cite{PybindEigen}.
+
+\subsection{Required unit and integration tests}
+
+\begin{enumerate}
+  \item Same input, configuration, seed, and pinned build/runtime produce identical results on repeated calls.
+  \item Zero-strength/no-op configuration leaves every input value unchanged.
+  \item The event log exactly identifies modified cells; cells not listed remain unchanged.
+  \item Price-spike magnitude and reversal pattern satisfy the requested formula within floating-point tolerance.
+  \item Stale blocks have exactly the requested length and copy the specified previous price.
+  \item Missing blocks set exactly the requested locations to NaN.
+  \item Invalid inputs (wrong dimensions, nonpositive prices where positivity is required, unsupported severity, out-of-range indices) fail explicitly.
+  \item Python receives the expected matrix shape, NaN pattern, and event metadata.
+  \item The price-rescaling invariance test passes through the Python feature pipeline.
+\end{enumerate}
+
+\begin{warningbox}
+Do not promise byte-identical outputs across all operating systems, compilers, and standard-library implementations merely because a seed is recorded. Pin and record compiler, standard library, dependencies, and build flags. Test deterministic repetition in that environment. The ML models may have separate sources of nondeterminism; they need their own reproducibility checks.
+\end{warningbox}
+
+\subsection{Performance claim}
+
+No speed advantage is assumed. NumPy and pandas call compiled numerical implementations. The C++ contribution is control, explicit fault semantics, deterministic event records, and integration with the research harness. Benchmark against a Python/NumPy reference only if time permits, using identical inputs and correctness checks.
+
+% ============================================================================
+\section{Evaluation metrics and interpretation}
+\label{sec:metrics}
+
+\subsection{Course-required classification metrics}
+
+Report on the same held-out test samples for every model and condition:
+\begin{itemize}
+  \item accuracy and its uncertainty;
+  \item confusion matrix;
+  \item precision, recall, and $F_1$ for each class;
+  \item one-versus-rest ROC curves and ROC-AUC (for binary classification, one ROC curve);
+  \item precision-recall curve and average precision (AP; report this explicitly rather than using the ambiguous label PR-AUC for different integration conventions);
+  \item balanced accuracy and macro-$F_1$;
+  \item Brier score and/or log loss for predicted probabilities.
+\end{itemize}
+
+For rare transitions, PR analysis is especially informative because precision directly reflects the fraction of positive predictions that are correct; ROC curves should still be reported because the course requires them. Saito and Rehmsmeier discuss this distinction for imbalanced binary classification \cite{Saito2015}.
+
+Brier score and log loss are proper probability-scoring rules, not pure measures of calibration alone: they reflect several aspects of probabilistic forecast quality. If the report makes a specific calibration claim, add a reliability diagram (and, if sample size permits, calibration slope/intercept) and state whether any probability recalibration was fitted on validation data only. Do not call a lower Brier score proof of calibration in isolation.
+
+\subsection{Threshold selection}
+
+Use threshold-free ranking metrics (ROC-AUC, average precision) alongside threshold-dependent metrics. If the probability threshold is tuned, tune it on validation data using a declared objective (for example, maximize validation $F_1$ subject to a minimum precision constraint). Freeze it before the final test campaign. If a split contains only one class, ROC-AUC is undefined; report it as undefined with the class counts rather than silently omitting the split or manufacturing a value. Average precision should be interpreted relative to the positive-class prevalence in that split.
+
+\subsection{Performance degradation}
+
+For a score where larger is better, define degradation as
+\begin{equation}
+  D_M=M_{\mathrm{reference}}-M_{\mathrm{corrupted}}.
+\end{equation}
+For a loss where smaller is better (e.g. Brier score), define
+\begin{equation}
+  D_M=M_{\mathrm{corrupted}}-M_{\mathrm{reference}}.
+\end{equation}
+Under either convention, positive $D_M$ denotes deterioration. Report the original values as well as $D_M$; a difference alone can hide poor absolute performance.
+
+\subsection{False alarms and lead time}
+
+Do not report ``false alarms per year'' or ``median warning lead time'' until an event-level protocol is specified. The five-session forward labels overlap, so multiple false-positive sample dates can correspond to one underlying episode. The minimum report should include false-positive rate and the confusion matrix. Event-level alert counts require a predeclared rule for merging consecutive alerts and matching alerts to transition episodes.
+
+% ============================================================================
+\section{Statistical analysis and uncertainty}
+\label{sec:stats}
+
+\subsection{Paired comparison}
+
+For a fixed market, model, test date range, and fault realization, compare the model on the same sample rows under reference and corrupted inputs. Define the raw paired change as
+\begin{equation}
+  \Delta M_{m,d,f,s,k}
+  =M_{m,d,f,s,k}^{\mathrm{corrupted}}
+  -M_{m,d}^{\mathrm{reference}}.
+\end{equation}
+For higher-is-better scores (e.g. macro-$F_1$), deterioration corresponds to $\Delta M<0$; for lower-is-better losses (e.g. Brier score), deterioration corresponds to $\Delta M>0$. For plots that require a single positive-is-worse convention, convert this raw change to $D_M$ using the sign definitions in Sec.~\ref{sec:metrics}. Pairing controls for the particular test interval and makes the intervention contrast more interpretable.
+
+\subsection{Date-block resampling}
+
+Rows are dependent within dates (shared market conditions) and across adjacent dates (serial dependence and overlapping five-session labels). Resample contiguous date blocks, keeping the full cross-section of instruments for each selected date together. Apply the same sampled date blocks to the paired reference/corrupted conditions.
+
+The moving-block and stationary-bootstrap literature provides standard methods for dependent time series \cite{Kunsch1989,PolitisRomano1994}. Do not claim that a block length of $H+1=6$ is automatically sufficient. Select a primary block length after examining the autocorrelation/dependence scale, and provide sensitivity results for multiple plausible lengths. Candidate values such as 5, 10, and 20 trading sessions can be inspected, but the final choice needs empirical justification. Estimate dependence diagnostics and choose the primary block-length rule using training/validation data or a prespecified rule; do not select it to produce a narrower or more favourable test interval.
+
+\textbf{Provisional resampling plan:} $B=2000$ replicates for the primary US test period, subject to computational and stability checks; date blocks resample all instruments together; paired conditions share the same resampled date sequence. Report the block-length choice, interval construction, and Monte Carlo seed. The bootstrap standard deviation of test accuracy can be reported as its dependence-aware standard error; do not use the naive binomial standard error as if all stock-date rows were independent.
+
+These intervals are conditional on the fitted model(s), selected hyperparameters, frozen preprocessing, and observed test period; they quantify test-period sampling uncertainty under the resampling scheme. They do not include variation from retraining the model with a different training sample or initialisation seed. If computationally feasible, assess training-seed variability as a separate experiment; do not conflate it with the date-block bootstrap.
+
+\textbf{Oslo limitation.} With approximately 15\% of a 751-session panel reserved for testing, the test interval may contain only about one hundred dates before purging. A block length of 20 would then provide very few effectively distinct blocks. Do not automatically report a 2000-replicate bootstrap interval as precise: inspect the number of available blocks and event clusters. If the effective number of blocks is too small, report descriptive estimates and explicitly label the uncertainty analysis as unstable or inconclusive. The US and Oslo panels may therefore need different inferential strength, even when the protocol is conceptually matched. In any bootstrap replicate containing only one target class, ROC-AUC is undefined; AP may also be undefined if there are no positive labels. Predefine how such replicates are counted, report their fraction, and do not silently substitute zero or discard many invalid replicates without disclosure. A high invalid-replicate rate is evidence that the available event count cannot support stable interval estimation.
+
+\subsection{Mixed-effects model: optional}
+
+A model for the degradation metric may be considered only after the raw paired degradation plots have been examined and there are enough independent time blocks/replicates. A possible explanatory structure is
+\begin{equation}
+  D_{d,m,f,s,k}
+  =\beta_0+\beta_m+\beta_f+\beta_s+\beta_d
+  +\text{selected interactions}+u_k+\varepsilon_{d,m,f,s,k}.
+\end{equation}
+Here $d$ is market dataset, $m$ model, $f$ fault type, $s$ severity, and $k$ replicate. This is not automatically justified by a large row count: the independent units are constrained by date blocks, instrument dependence, and repeated conditions. Treat this as an optional secondary analysis, not the primary inference method.
+
+\subsection{No arbitrary operational thresholds}
+
+The earlier draft proposed fixed acceptance criteria such as a five-point macro-$F_1$ drop, 60\% recall, or a 0.05 Brier increase. These values are not grounded in an identified deployment requirement. Do not call them universal operational thresholds. If retained, label them as illustrative sensitivity thresholds and explain their chosen scale. The primary scientific results should report the full degradation curves and uncertainty.
+
+% ============================================================================
+\section{Experiment matrix and run traceability}
+\label{sec:experiment}
+
+\subsection{Minimum experiment matrix}
+
+The primary experiment is the US Kaggle panel. Its corruption-evaluation matrix is
+\begin{equation}
+  3\;\text{models}\times3\;\text{fault types}\times3\;\text{severities}
+  \times5\;\text{fault realisations}=135.
+\end{equation}
+The five realisations vary the fault event locations/magnitudes under predeclared seeds while preserving paired event patterns across the three models. The model is fitted once per selected configuration/seed and the same fitted model is evaluated on reference and corrupted inputs. This produces 135 corrupted-condition scores plus the clean reference scores; it is not 135 independent model fits.
+
+The Oslo extension, if its date coverage and event counts support it, adds a separate $135$-condition matrix. The maximum full comparison would therefore contain $135$ US plus $135$ Oslo corruption assessments, not a requirement to run both before the US primary study is complete. The Oslo panel can be reduced to descriptive/fault-propagation checks if its test period is too short for defensible inferential estimates.
+
+Keep three randomisation sources separate in the manifest: (i) model-initialisation/training seed, (ii) fault-realisation seed, and (iii) bootstrap seed. The five fault realisations do not measure model-training variability unless the models are refitted for each training seed. For a given fault realisation, use identical event locations and magnitudes across LR, RF, and MLP so that model comparisons are paired. The exact model-fit replication plan is a separate decision; do not multiply the experiment count without stating which factors are being crossed.
+
+The reference condition and the fault-augmented condition add further model fits/evaluations. Count those separately in the final experiment manifest; do not hide them inside the 135-cell count.
+
+\subsection{Required run manifest}
+
+Every run should write a machine-readable JSON manifest with at least:
+\begin{longtable}{p{4.0cm}p{9.8cm}}
+\toprule
+\textbf{Field} & \textbf{Meaning}\\
+\midrule
+\texttt{experiment\_id} & Unique stable identifier.\\
+\texttt{dataset\_id} & \texttt{us\_kaggle} or \texttt{oslo\_course}.\\
+\texttt{snapshot\_hashes} & SHA-256 hashes for raw price panels and benchmark files.\\
+\texttt{source\_metadata} & Source URL/handle, download time, exact field used, parsing rules.\\
+\texttt{code\_commit} & Git commit and dirty-working-tree flag.\\
+\texttt{environment} & Python, compiler, Eigen, pybind11, NumPy, pandas, scikit-learn versions; OS and relevant hardware.\\
+\texttt{model\_id/config} & Model name, hyperparameters, model seed, selected threshold.\\
+\texttt{feature\_schema} & Ordered feature names and version/hash.\\
+\texttt{target\_definition} & Horizon, quantile, per-instrument threshold policy, eligibility rule.\\
+\texttt{split\_definition} & Exact date boundaries, purged prediction dates, counts per split.\\
+\texttt{fault\_config} & Fault type, severity, affected instruments/dates, fault seed.\\
+\texttt{fault\_events} & Separate event log with row/date, instrument, original value, corrupted value, reason.\\
+\texttt{quality\_diagnostics} & Counts of missingness, invalid values, flags, and feature NaNs.\\
+\texttt{metrics} & All evaluation scores and uncertainty summaries.\\
+\texttt{runtime} & Training and inference duration.\\
+\bottomrule
+\end{longtable}
+
+The fault-event log is an audit record and ground truth for evaluating the injector. It is not fed to the model.
+
+\subsection{Reproducibility assertion}
+
+A repeated run using the same frozen source files, code commit, environment, configuration, and seed should reproduce the C++ corruption output exactly within the pinned environment. ML metrics should be reproducible within the documented numerical tolerance and backend constraints. If not, record and diagnose the source of nondeterminism rather than silently overwriting the earlier result.
+
+% ============================================================================
+\section{Cross-market comparison}
+\label{sec:crossmarket}
+
+\subsection{Level 1: source and data-quality comparison}
+
+Compare date coverage, instrument count, instrument-specific coverage, missingness, invalid prices, extreme-return diagnostics, benchmark alignment, and fraction of eligible instrument-date samples. These are descriptive comparisons.
+
+\subsection{Level 2: robustness comparison}
+
+Run the same protocol separately on each market. Compare within-market degradation curves, for example
+\begin{equation}
+  D_{M,\US}(f,s)\quad\text{and}\quad D_{M,\OS}(f,s).
+\end{equation}
+Do not use a difference in raw accuracy between the two datasets as the cross-market conclusion. The Oslo panel is much smaller and may contain only five instruments; its uncertainty will likely be larger. If it has too few independent positive runs, describe it as a limited replication/feasibility study rather than evidence of universal cross-market robustness.
+
+\subsection{No claim of transfer learning}
+
+The primary design trains and evaluates separate models for the US and Oslo datasets. It does not test US-to-Oslo transfer, joint training, or domain adaptation. Those are excluded unless a separate experimental design and adequate sample support are developed.
+
+% ============================================================================
+\section{Relation to the literature and source scope}
+\label{sec:literature}
+
+This section is a source map for the author. It is not a substitute for reading the papers. Each reference should be checked at least at the abstract, methods relevant to the cited claim, and conclusion level before it is used in the final report.
+
+\begin{longtable}{p{3.5cm}p{5.1cm}p{5.3cm}}
+\caption{Relevant sources and the limited claim each can support.}\label{tab:litmap}\\
+\toprule
+\textbf{Source} & \textbf{Relevant contribution} & \textbf{How it may be used / limit}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Source} & \textbf{Relevant contribution} & \textbf{How it may be used / limit}\\
+\midrule
+\endhead
+Andersen et al. (2003) & Realised-volatility framework based on high-frequency observations and quadratic variation. & Use for the general RV concept. Explicitly distinguish the project's daily close-to-close proxy from high-frequency RV.\\
+\addlinespace
+Corsi (2009) & HAR-RV representation of multi-horizon volatility persistence. & Motivation for short/medium horizon volatility features and a possible future continuous-volatility benchmark; not a requirement to add HAR to the classifier MVP.\\
+\addlinespace
+Branco et al. (2024) \cite{Branco2024} & Linear and nonlinear ML comparisons for realised-volatility forecasting across indices. & Supports caution against assuming nonlinear methods universally outperform linear models. It studies continuous forecasting, not this corruption classification target.\\
+\addlinespace
+Ding et al. (2025) \cite{Ding2025} & Regime-switching models for realised-volatility forecasting across international markets. & Context for state-dependent volatility; not directly comparable to a quantile-based supervised transition label.\\
+\addlinespace
+Kili\c{c} (2026 revision of FEDS 2025-061) \cite{Kilic2026} & Comparison of econometric and ML realised-volatility forecasting models for S\&P 500 and individual equities. & Relevant current working-paper context. It remains a FEDS discussion paper, not a peer-reviewed journal article; cite the revision actually read.\\
+\addlinespace
+Gupta and Liu (2026) & VIX regime classification; transition-type analysis and persistence/abstention diagnostics. & Motivates explicit transition-conditioned evaluation and a state-persistence baseline. Their VIX setting and selective-prediction design differ from this stock panel.\\
+\addlinespace
+Zhao et al. (2026) & TS-Fault benchmark for structured faults in time-series forecasting. & Motivates parameterized structural fault scenarios and paired clean/corrupt evaluation. It is an arXiv preprint and studies forecasting rather than this financial classification task.\\
+\addlinespace
+Krauss et al. (2017) \cite{Krauss2017} & Deep nets, gradient-boosted trees, and random forests for statistical arbitrage on the S\&P 500. & Relevant as broad ML-in-finance context and for methods applied to US equities; not a volatility-transition or data-corruption benchmark.\\
+\addlinespace
+Fischer and Krauss (2018) \cite{FischerKrauss2018} & LSTM-based financial-market prediction compared with other learning methods. & Broad sequence-model context only. The current project excludes LSTMs and uses a different target/horizon.\\
+\addlinespace
+Gu, Kelly, and Xiu (2020) \cite{GuKellyXiu2020} & Machine learning for empirical asset pricing and risk-premium prediction. & Broad methodological context for ML in asset pricing; not evidence for this realised-volatility transition target.\\
+\addlinespace
+Adams et al. (2019) & Identifying and treating outliers in finance. & Supports the need to distinguish unusual financial observations from data errors; does not imply that every statistical outlier is erroneous.\\
+\addlinespace
+Bryzgalova et al. (2025) & Structured missingness in firm fundamentals and implications for imputation and finance. & Supports caution that missingness can be structured. The study concerns fundamentals, not daily adjusted-price gaps.\\
+\addlinespace
+Shumway (1997) & Delisting bias and omitted delisting returns in historical stock databases. & Supports the general survivorship/delisting-bias caveat. It does not establish the actual composition of the Kaggle dataset.\\
+\addlinespace
+Connolly and Stivers (2006); Hwang and Satchell (2005); Byun (2016) & Cross-sectional return dispersion and its relation to future firm/portfolio/aggregate volatility. & Motivation for the optional cross-sectional feature. These are adjacent measures, not direct evidence for the exact standard deviation of per-stock five-day RV used here.\\
+\addlinespace
+Saito and Rehmsmeier (2015) & Precision-recall plots under class imbalance. & Supports prioritising PR curves/AP when the positive transition class is rare; ROC metrics should also be reported for course compliance.\\
+\addlinespace
+K\"unsch (1989); Politis and Romano (1994) & Resampling methods for dependent stationary observations. & Supports date-block resampling; block length and stationarity assumptions still require diagnostics and sensitivity analysis.\\
+\bottomrule
+\end{longtable}
+
+\subsection{References not to overstate}
+
+\begin{itemize}
+  \item Fischer and Krauss (2018) and Krauss et al. (2017) concern financial market prediction/statistical arbitrage; they are not direct benchmarks for the proposed volatility-transition target. Include only if the literature review needs general ML-in-finance context.
+  \item Gu, Kelly, and Xiu (2020) study empirical asset pricing and risk-premium prediction, not this volatility-transition classification problem. Do not cite it as direct evidence for this target.
+  \item The VIX paper by Gupta and Liu is recent and directly relevant to transition/persistence diagnostics, but one paper cannot establish a general ``persistence illusion'' for all markets and targets.
+  \item TS-Fault is an arXiv preprint. Describe it as a preprint and do not cite it as peer-reviewed evidence.
+\end{itemize}
+
+\begin{warningbox}
+\textbf{Published-result comparability.} The project defines its own instrument-specific quantile transition target, sample eligibility rule, benchmark covariates, and synthetic corruption protocol. The cited volatility papers generally forecast continuous realised volatility or study different regime labels, markets, horizons, and information sets. Their reported scores are therefore not directly comparable numerical benchmarks. Use them to motivate the problem, feature families, persistence concerns, and methodological choices; do not place their published accuracy/forecast-error numbers beside the present classifier scores as if they were measured on the same task. If a genuinely matching study is found, document the exact target, sample, horizon, and evaluation protocol before making a numerical comparison.
+\end{warningbox}
+
+% ============================================================================
+\section{Internship alignment}
+\label{sec:internship}
+
+The internship tasks concern traces, observability, workflow testing, documentation, statistical analysis, experimentation, and software implementation. The project offers a controlled engineering analogue, not a direct test of a legal-product workflow.
+
+\begin{longtable}{p{2.1cm}p{5.9cm}p{6.0cm}}
+\toprule
+\textbf{Work package} & \textbf{Project artefact} & \textbf{Transferable capability / boundary}\\
+\midrule
+WP1 & Fault taxonomy, deterministic injection, unit tests, QC diagnostics, experiment manifests, paired evaluations. & Controlled perturbation and mechanism-level observability. Financial faults are not equivalent to semantic/legal errors.\\
+WP2 & Data card, experiment protocol, architecture note, decisions log, state-of-work record. & Persistent context and reproducible handoff to new agents.\\
+WP3 & Repeated runs, paired degradation metrics, date-block bootstrap, optional mixed model. & Statistical analysis of iterative changes and uncertainty.\\
+WP4 & Fault-interaction and benchmark-misalignment ideas. & Structured experimentation and hypothesis development.\\
+WP5 & Clean vs corrupted vs augmented comparisons. & Controlled architecture/training experiments.\\
+WP6 & C++17 FaultInjector, Python binding, tests, data pipeline. & Conventional software engineering and integration.\\
+WP7 & Excluded. & Lawyer allocation requires actual case, lawyer, workload, outcome, and retention data. Financial-market data cannot validate this.\\
+\bottomrule
+\end{longtable}
+
+The project should not claim that price corruption is a proxy for fabricated legal citations or missing legal facts. Its transferable contribution is the experimental discipline: known input interventions, preserved references, versioned traces, measurable output changes, and tests that help attribute the changes to specific mechanisms.
+
+% ============================================================================
+\section{Part A completion checklist}
+\label{sec:partA}
+
+Part A is complete only when the report can answer each item with actual evidence.
+
+\begin{enumerate}[label=\textbf{A\arabic*.},leftmargin=1.6cm]
+  \item \todo{Freeze the Kaggle snapshot; record download date, raw file names, hashes, schema, and exact date range.}
+  \item \todo{Audit duplicate (date,ticker) keys before pivoting; remove the silent adjusted-close-to-close fallback.}
+  \item \todo{Download and inspect SPY using explicit yfinance adjustment settings; verify overlap and field schema.}
+  \item \todo{Audit the Oslo workbook and confirm actual tickers, valid rows, missingness, date range, and price basis.}
+  \item \todo{Download and inspect OSEBX.OL; verify coverage and actual yfinance field schema.}
+  \item \todo{Define the market trading calendars and align the asset panel and benchmark without look-ahead.}
+  \item \todo{Produce the per-instrument return, $RV^{(5)}$, and $RV^{(20)}$ panels; test hand-calculated windows.}
+  \item \todo{Implement training-only per-instrument thresholds and the eligibility-filtered transition label.}
+  \item \todo{Produce four-state transitions, class rates, positive-date counts, and positive-run counts by split and market.}
+  \item \todo{Freeze chronological train/validation/test date ranges and assert that each label horizon stays within its split.}
+  \item \todo{Specify training-only imputation/scaling and demonstrate that the test set never fits a transformation.}
+  \item \todo{Produce descriptive figures: price coverage, return distributions/time series, rolling volatility, class counts, and benchmark alignment.}
+  \item \todo{Write the data source and limitations section independently, with the actual source-specific facts and citations.}
+\end{enumerate}
+
+\begin{agentbox}
+Coding-agent execution order: inspect repository and existing functions first; do not replace working code wholesale. Run the audit and return the output before changing target definitions. Implement one transformation at a time, add unit tests, save the intermediate artifact and its hash, and update \texttt{STATE\_OF\_WORK.md} and \texttt{DECISIONS.md}. Never fabricate row counts, ticker lists, data fields, or experiment results. If the repository disagrees with this document, report the discrepancy and propose a decision rather than silently changing the design.
+\end{agentbox}
+
+% ============================================================================
+\section{Implementation roadmap after Part A}
+\label{sec:roadmap}
+
+\begin{longtable}{p{1.5cm}p{7.1cm}p{5.0cm}}
+\toprule
+\textbf{Stage} & \textbf{Work} & \textbf{Acceptance evidence}\\
+\midrule
+1 & Data acquisition, source audit, snapshot freeze, SPY/OSEBX field verification. & Two source manifests, hashes, audit reports.\\
+2 & Panel construction, returns, volatility features, target, feasibility report, chronological split. & Reproducible feature/label tables; leakage and purge assertions.\\
+3 & C++ fault injector and Python binding. & Unit tests, integration test, fault-event log.\\
+4 & Logistic regression, random forest, MLP, and no-transition baseline. & Validation-selected models and reference test results.\\
+5 & Primary fault-severity sweep on held-out inputs. & Corruption manifests, degradation curves, date-block uncertainty.\\
+6 & Fault-augmented training comparison; optional quality-indicator ablation. & Reference/corrupt/mitigated comparison with clean-performance cost.\\
+7 & Cross-market analysis, interpretation, literature review, report and repository. & Final report, figures, README, pinned dependencies, reproducible run command.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Minimum figure plan}
+
+The report requires around 10--15 figures. Avoid padding the report with repetitive plots. A candidate figure plan is:
+\begin{enumerate}
+  \item US panel coverage and missingness by instrument/time;
+  \item Oslo panel coverage and missingness;
+  \item representative adjusted-price and return series;
+  \item distribution of daily returns and extreme-return audit;
+  \item rolling $RV^{(5)}$ and $RV^{(20)}$ for selected instruments;
+  \item benchmark alignment and benchmark-return comparison;
+  \item four-state transition counts and positive-label frequencies;
+  \item class balance by train/validation/test split;
+  \item clean reference model comparison;
+  \item degradation versus spike severity;
+  \item degradation versus stale-block length;
+  \item degradation versus missing-block length;
+  \item fault-augmented versus reference-trained comparison;
+  \item cross-market relative degradation summary;
+  \item optional cross-sectional-dispersion ablation or fault-propagation example.
+\end{enumerate}
+
+Every figure must support a specific claim. A plot should not be included merely because it can be generated.
+
+% ============================================================================
+\section{Limitations and interpretation rules}
+\label{sec:limitations}
+
+\begin{itemize}
+  \item \textbf{Kaggle universe:} historical membership and delisted-stock coverage must be verified. If the panel is survivor-selected, the empirical population is conditional on the supplied surviving names.
+  \item \textbf{Oslo size:} five instruments and roughly three calendar years (as reported in the current draft) provide a limited cross-section and short time dimension. Oslo results may be imprecise and are a replication/feasibility comparison, not broad evidence about all Norwegian equities.
+  \item \textbf{Adjusted-close-only data:} no true intraday, volume, spread, or OHLCV validation is possible from a single adjusted-close series.
+  \item \textbf{Daily frequency:} the volatility proxy misses intraday variation and should not be described as high-frequency realised variance.
+  \item \textbf{Synthetic faults:} injected scenarios are known and parameterized; they are not a census of real-world data failures.
+  \item \textbf{Cross-market comparison:} differences in degradation may reflect source quality, instrument composition, calendar, duration, or market structure. Do not attribute them to country/market identity alone.
+  \item \textbf{Prediction target:} a quantile-defined transition is a statistical label, not an objective crisis classification or an economic loss measure.
+  \item \textbf{Causal language:} randomized controlled injection supports attribution of performance changes to the specified synthetic intervention within this experimental pipeline. It does not identify the causal effect of naturally occurring vendor failures in live markets.
+\end{itemize}
+
+% ============================================================================
+\section{Decisions still requiring the author's approval}
+\label{sec:open}
+
+\begin{longtable}{p{4.0cm}p{6.8cm}p{3.0cm}}
+\toprule
+\textbf{Decision} & \textbf{Options / evidence required} & \textbf{Status}\\
+\midrule
+Primary horizon & Five sessions currently proposed; justify and freeze before test. & \verify{confirm}\\
+Primary quantile & $\tau=0.75$ proposed; $0.80$ sensitivity. & \verify{confirm}\\
+Minimum per-stock history & Candidate 252 valid training observations; test 126/252 sensitivity if needed. & \verify{confirm}\\
+US date split & 70/15/15 chronological by unique dates, subject to event counts. & \verify{actual dates}\\
+Oslo benchmark & OSEBX.OL if schema and period coverage pass; otherwise report no external benchmark or a clearly labelled internal reference factor. & \verify{download}\\
+Missing-feature imputer & Training median plus explicit indicators is the initial candidate. & \verify{implement}\\
+Fault spike severity & $3,5,10$ training standard deviations; confirm these are sensible after inspecting training distributions. & \verify{freeze}\\
+Spike count & One, three, or five events per instrument/test period (candidate); define event placement. & \verify{freeze}\\
+Stale/missing lengths & Stale $L=3,5,10$; missing $L=1,3,5$. & \verify{freeze}\\
+Bootstrap blocks & Inspect dependence; compare at least three block lengths. & \verify{estimate}\\
+Cross-sectional feature & Optional; no novelty claim; include only after core experiment runs. & \verify{defer}\\
+Quality-aware detector & Optional and separate from augmentation. & \verify{defer}\\
+\bottomrule
+\end{longtable}
+
+% ============================================================================
+\section{LLM-use declaration: author-completed template}
+\label{sec:llm}
+
+Do not paste a generic declaration into the submission. The final declaration must reflect the tools actually used, dates, contribution levels for each report section, and contribution levels for each code file/notebook. The course requires inline code tags for LLM-assisted functions/cells and restricts report prose to contribution level 1 \cite{UiOProject3}.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{P{2.2cm}P{2.0cm}P{2.2cm}X}
+\toprule
+\textbf{Tool} & \textbf{Date} & \textbf{Contribution level} & \textbf{Specific task and affected files/sections}\\
+\midrule
+\todo{tool} & \todo{date} & \todo{level} & \todo{accurate description}\\
+\todo{tool} & \todo{date} & \todo{level} & \todo{accurate description}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Remove unrelated Project 2 declarations.} The earlier draft's references to the batched-backpropagation function, JAX gradient checks, and the \texttt{train\_network} routine are not automatically relevant to this Project 3. Retain them only if those exact functions are actually reused and their assistance is accurately declared. Do not claim that all report prose was written without AI assistance unless that statement is true under the course definition.
+
+% ============================================================================
+\section{Bibliography}
+\label{sec:bibliography}
+
+\begin{thebibliography}{99}
+
+\bibitem{UiOProject3}
+University of Oslo, FYS-STK3155/FYS4155,
+\emph{Project 3: Data Analysis and Machine Learning},
+course project instructions, published 10 November 2026.
+
+\bibitem{KaggleSP500}
+\emph{S\&P 500 Stocks: 25 Years of Data (Updated Daily)},
+Kaggle dataset, darkmatternet.
+\url{https://www.kaggle.com/datasets/darkmatternet/s-and-p-500-stocks-25-years-of-data-updated-daily}.
+Access date and snapshot hash to be recorded by the author.
+
+\bibitem{OSEBXYahoo}
+Yahoo Finance,
+\emph{Oslo B\o rs Benchmark Index\_GI (OSEBX.OL)},
+quote and historical-data pages.
+\url{https://finance.yahoo.com/quote/OSEBX.OL/}.
+Download schema and coverage to be recorded by the author.
+
+\bibitem{SPYYahoo}
+Yahoo Finance,
+\emph{SPDR S\&P 500 ETF Trust (SPY)},
+quote and historical-data pages.
+\url{https://finance.yahoo.com/quote/SPY/}.
+Download schema and coverage to be recorded by the author.
+
+\bibitem{YFinanceHistory}
+R.~Aroussi and contributors,
+\emph{yfinance: PriceHistory class and historical-data parameters},
+package documentation.
+\url{https://ranaroussi.github.io/yfinance/reference/yfinance.price_history.html}.
+
+\bibitem{OsloWorkbook}
+Course-provided workbook,
+\emph{oslo-stocks-2023-2025.xlsx},
+worksheet \texttt{Adjusted Prices}.
+Author to record the course/source metadata and retrieval context supplied with the workbook.
+
+\bibitem{Tsay2010}
+R.~S.~Tsay,
+\emph{Analysis of Financial Time Series}, 3rd ed.
+(Wiley, Hoboken, NJ, 2010).
+ISBN 978-0-470-41435-4.
+
+\bibitem{Andersen2003}
+T.~G.~Andersen, T.~Bollerslev, F.~X.~Diebold, and P.~Labys,
+``Modeling and Forecasting Realized Volatility,''
+\emph{Econometrica} \textbf{71}(2), 579--625 (2003).
+\url{https://doi.org/10.1111/1468-0262.00418}.
+
+\bibitem{Corsi2009}
+F.~Corsi,
+``A Simple Approximate Long-Memory Model of Realized Volatility,''
+\emph{Journal of Financial Econometrics} \textbf{7}(2), 174--196 (2009).
+\url{https://doi.org/10.1093/jjfinec/nbp001}.
+
+\bibitem{Branco2024}
+R.~R.~Branco, A.~Rubesam, and M.~Zevallos,
+``Forecasting Realized Volatility: Does Anything Beat Linear Models?''
+\emph{Journal of Empirical Finance} \textbf{78}, 101524 (2024).
+\url{https://doi.org/10.1016/j.jempfin.2024.101524}.
+
+\bibitem{Ding2025}
+Y.~Ding, D.~Kambouroudis, and D.~G.~McMillan,
+``Forecasting Realised Volatility Using Regime-Switching Models,''
+\emph{International Review of Economics \& Finance} \textbf{101}, 104171 (2025).
+\url{https://doi.org/10.1016/j.iref.2025.104171}.
+
+\bibitem{Kilic2026}
+R.~K{\i}l{\i}\c{c},
+``Linear and Nonlinear Econometric Models versus Machine-Learning Models: Evidence from Realized-Volatility Forecasting,''
+Finance and Economics Discussion Series 2025-061r1,
+Board of Governors of the Federal Reserve System, revised September 2026.
+\url{https://doi.org/10.17016/FEDS.2025.061r1}.
+
+\bibitem{GuptaLiu2026}
+A.~Gupta and J.~Liu,
+``Selective Prediction and the Persistence Illusion: A Diagnostic Decomposition of VIX Regime Classification,''
+\emph{Journal of Risk and Financial Management} \textbf{19}(8), 609 (2026).
+\url{https://doi.org/10.3390/jrfm19080609}.
+
+\bibitem{Zhao2026TSFault}
+Y.~Zhao, L.~Xu, H.~Miao, C.~Liu, and H.~Xue,
+``TS-Fault: Benchmarking Time Series Forecasters Against Structural Faults,''
+arXiv:2606.18539 (2026), preprint.
+\url{https://arxiv.org/abs/2606.18539}.
+
+\bibitem{Krauss2017}
+C.~Krauss, X.~A.~Do, and N.~Huck,
+``Deep Neural Networks, Gradient-Boosted Trees, Random Forests: Statistical Arbitrage on the S\&P 500,''
+\emph{European Journal of Operational Research} \textbf{259}(2), 689--702 (2017).
+\url{https://doi.org/10.1016/j.ejor.2016.10.031}.
+
+\bibitem{FischerKrauss2018}
+T.~Fischer and C.~Krauss,
+``Deep Learning with Long Short-Term Memory Networks for Financial Market Predictions,''
+\emph{European Journal of Operational Research} \textbf{270}(2), 654--669 (2018).
+\url{https://doi.org/10.1016/j.ejor.2017.11.054}.
+
+\bibitem{GuKellyXiu2020}
+S.~Gu, B.~Kelly, and D.~Xiu,
+``Empirical Asset Pricing via Machine Learning,''
+\emph{The Review of Financial Studies} \textbf{33}(5), 2223--2273 (2020).
+\url{https://doi.org/10.1093/rfs/hhaa009}.
+
+\bibitem{NumPyQuantileDocs}
+NumPy developers,
+\emph{numpy.quantile documentation}, NumPy API reference.
+\url{https://numpy.org/doc/stable/reference/generated/numpy.quantile.html}.
+
+\bibitem{SimpleImputerDocs}
+Scikit-learn developers,
+\emph{SimpleImputer documentation}, scikit-learn API reference.
+\url{https://scikit-learn.org/stable/modules/generated/sklearn.impute.SimpleImputer.html}.
+
+\bibitem{MissingIndicatorDocs}
+Scikit-learn developers,
+\emph{MissingIndicator documentation}, scikit-learn API reference.
+\url{https://scikit-learn.org/stable/modules/generated/sklearn.impute.MissingIndicator.html}.
+
+\bibitem{StandardScalerDocs}
+Scikit-learn developers,
+\emph{StandardScaler documentation}, scikit-learn API reference.
+\url{https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html}.
+
+\bibitem{Adams2019}
+J.~Adams, D.~Hayunga, S.~Mansi, D.~Reeb, and V.~Verardi,
+``Identifying and Treating Outliers in Finance,''
+\emph{Financial Management} \textbf{48}(2), 345--384 (2019).
+\url{https://doi.org/10.1111/fima.12269}.
+
+\bibitem{Bryzgalova2025}
+S.~Bryzgalova, S.~Lerner, M.~Lettau, and M.~Pelger,
+``Missing Financial Data,''
+\emph{Review of Financial Studies} \textbf{38}(3), 803--882 (2025).
+\url{https://doi.org/10.1093/rfs/hhae036}.
+
+\bibitem{Shumway1997}
+T.~Shumway,
+``The Delisting Bias in CRSP Data,''
+\emph{The Journal of Finance} \textbf{52}(1), 327--340 (1997).
+\url{https://doi.org/10.1111/j.1540-6261.1997.tb03818.x}.
+
+\bibitem{ConnollyStivers2006}
+R.~Connolly and C.~Stivers,
+``Information Content and Other Characteristics of the Daily Cross-Sectional Dispersion in Stock Returns,''
+\emph{Journal of Empirical Finance} \textbf{13}(1), 79--112 (2006).
+\url{https://doi.org/10.1016/j.jempfin.2005.02.001}.
+
+\bibitem{HwangSatchell2005}
+S.~Hwang and S.~E.~Satchell,
+``GARCH Model with Cross-Sectional Volatility: GARCHX Models,''
+\emph{Applied Financial Economics} \textbf{15}(3), 203--216 (2005).
+\url{https://doi.org/10.1080/0960310042000314214}.
+
+\bibitem{Byun2016}
+S.~J.~Byun,
+``The Usefulness of Cross-Sectional Dispersion for Forecasting Aggregate Stock Price Volatility,''
+\emph{Journal of Empirical Finance} \textbf{36}, 162--180 (2016).
+\url{https://doi.org/10.1016/j.jempfin.2016.01.013}.
+
+\bibitem{LiuWavelet2026}
+H.~Liu, Y.~Shen, and A.~Jiang,
+``Public-Data Causal Multiscale Wavelet Spillover Learning for Stock Index Volatility Forecasting and Risk Early Warning,''
+\emph{Risks} \textbf{14}(6), 129 (2026).
+\url{https://doi.org/10.3390/risks14060129}.
+
+\bibitem{Saito2015}
+T.~Saito and M.~Rehmsmeier,
+``The Precision-Recall Plot Is More Informative than the ROC Plot When Evaluating Binary Classifiers on Imbalanced Datasets,''
+\emph{PLOS ONE} \textbf{10}(3), e0118432 (2015).
+\url{https://doi.org/10.1371/journal.pone.0118432}.
+
+\bibitem{Kunsch1989}
+H.~R.~K\"unsch,
+``The Jackknife and the Bootstrap for General Stationary Observations,''
+\emph{The Annals of Statistics} \textbf{17}(3), 1217--1241 (1989).
+\url{https://doi.org/10.1214/aos/1176347265}.
+
+\bibitem{PolitisRomano1994}
+D.~N.~Politis and J.~P.~Romano,
+``The Stationary Bootstrap,''
+\emph{Journal of the American Statistical Association} \textbf{89}(428), 1303--1313 (1994).
+\url{https://doi.org/10.1080/01621459.1994.10476870}.
+
+\bibitem{Breiman2001}
+L.~Breiman,
+``Random Forests,''
+\emph{Machine Learning} \textbf{45}, 5--32 (2001).
+\url{https://doi.org/10.1023/A:1010933404324}.
+
+\bibitem{Goodfellow2016}
+I.~Goodfellow, Y.~Bengio, and A.~Courville,
+\emph{Deep Learning} (MIT Press, Cambridge, MA, 2016).
+\url{https://www.deeplearningbook.org/}.
+
+\bibitem{Pedregosa2011}
+F.~Pedregosa \emph{et al.},
+``Scikit-Learn: Machine Learning in Python,''
+\emph{Journal of Machine Learning Research} \textbf{12}, 2825--2830 (2011).
+\url{https://jmlr.org/papers/v12/pedregosa11a.html}.
+
+\bibitem{LopezDePrado2018}
+M.~L\'opez de Prado,
+\emph{Advances in Financial Machine Learning}
+(John Wiley \& Sons, Hoboken, NJ, 2018).
+ISBN 978-1-119-48208-6.
+
+\bibitem{ScikitLearnPitfalls}
+Scikit-learn developers,
+\emph{Common Pitfalls and Recommended Practices},
+scikit-learn documentation, section on data leakage and inconsistent preprocessing.
+\url{https://scikit-learn.org/stable/common_pitfalls.html}.
+
+\bibitem{PybindEigen}
+pybind11 developers,
+\emph{Eigen Type Conversions},
+pybind11 documentation.
+\url{https://pybind11.readthedocs.io/en/stable/advanced/cast/eigen.html}.
+
+\bibitem{Eigen}
+G.~Guennebaud, B.~Jacob, and contributors,
+\emph{Eigen: A C++ Template Library for Linear Algebra}.
+\url{https://eigen.tuxfamily.org/}.
+
+\end{thebibliography}
+
+% ============================================================================
+\appendix
+\section{Source verification notes}
+\label{app:sourcechecks}
+
+The following source details were checked against publisher, official documentation, or primary data-source pages during preparation of this design audit (24 November 2026):
+\begin{itemize}
+  \item Andersen et al. (2003): title, journal, volume, pages, and DOI; the paper's realised-volatility framework uses high-frequency observations.
+  \item Corsi (2009): title, journal, volume, pages, and DOI for HAR-RV.
+  \item Branco et al. (2024): title, Journal of Empirical Finance volume 78, article 101524, and DOI.
+  \item Ding et al. (2025): title, International Review of Economics \& Finance volume 101, article 104171, and DOI.
+  \item Kili\c{c}: Federal Reserve FEDS page/PDF gives a revised FEDS 2025-061r1 citation and a September 2026 revised version; cite the revised version actually read, and note that it is a working paper.
+  \item Gupta and Liu (2026): title, authors, journal, volume/issue/article number, DOI, and the paper's four-state transition analysis/persistence baseline.
+  \item Zhao et al. (2026): arXiv ID, authors, title, date, and that the work is a preprint.
+  \item Shumway (1997): title, Journal of Finance volume/pages, and DOI.
+  \item Adams et al. (2019): title, Financial Management volume/pages, and DOI.
+  \item Bryzgalova et al. (2025): title, Review of Financial Studies volume/pages, and DOI. The topic is missing firm fundamentals, not missing daily prices.
+  \item Cross-sectional dispersion references: Connolly--Stivers (2006), Hwang--Satchell (2005), and Byun (2016), with titles and DOIs verified. Their measures are related but not identical to Eq.~\eqref{eq:dispersion}.
+  \item Saito--Rehmsmeier (2015): title, PLOS ONE article number, and DOI.
+  \item K\"unsch (1989) and Politis--Romano (1994): titles and DOIs for dependence-aware bootstrap methods.
+  \item yfinance documentation: current \texttt{auto\_adjust} default is True and the end parameter is exclusive; explicit settings are required for reproducible field selection.
+  \item Yahoo Finance identifies \texttt{OSEBX.OL} as the Oslo B\o rs Benchmark Index. Actual yfinance response fields and coverage still require a local download check.
+  \item pybind11 documentation describes Eigen/NumPy conversions and notes that ordinary Eigen conversions can copy data.
+  \item Krauss et al. (2017), Fischer and Krauss (2018), and Gu, Kelly, and Xiu (2020): bibliographic metadata/DOIs checked; all are broad ML-in-finance references, not direct volatility-transition or corruption benchmarks.
+  \item NumPy \texttt{quantile} documentation: checked for the available quantile estimators and the default \texttt{method="linear"} convention; the exact method and software version must be recorded in the experiment manifest.
+  \item Scikit-learn documentation for \texttt{SimpleImputer}, \texttt{MissingIndicator}, and \texttt{StandardScaler}: checked for training-statistic reuse and the behaviour of automatically generated missingness indicators.
+\end{itemize}
+
+\section{Exact code checks to perform before modelling}
+\label{app:codechecks}
+
+\begin{enumerate}
+  \item In the Kaggle loader, remove silent fallback from adjusted close to close, or attach a per-row/per-instrument price-basis label and exclude incompatible values from the primary adjusted-price panel.
+  \item Count duplicate $(\text{date},\text{ticker})$ records before pivoting; do not silently collapse them with \texttt{aggfunc="last"}.
+  \item Count parsing failures before dropping rows.
+  \item Ensure the price panel is sorted before \texttt{diff()} and all rolling calculations.
+  \item Keep the Oslo module's executable audit code under \verb|if __name__ == "__main__":|; importing the module should define functions, not load files or print reports.
+  \item Do not create synthetic OHLC/volume fields from adjusted close and call the result OHLCV validation.
+  \item Create an assertion that SPY/OSEBX benchmark features use only dates at or before the prediction date.
+  \item Create an assertion that all sample labels are fully observed within their assigned date partition.
+  \item Create an assertion that the target column and all forward-looking columns are absent from the feature matrix.
+  \item Construct missingness indicators from the pre-imputation feature matrix with a fixed all-feature schema; do not rely blindly on indicators generated only for columns missing during imputer fitting.
+  \item Save the source panel, target, feature matrix, split map, and manifests as separate versioned artefacts.
+\end{enumerate}
+
+\end{document}
