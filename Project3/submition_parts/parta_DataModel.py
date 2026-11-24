@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     # 3. Construct the figure plot
     fig, axes = plt.subplots(
-        5,1,figsize = (14,15),
+        3,1,figsize = (14,15),
         sharex = True
     )
 
@@ -139,28 +139,35 @@ if __name__ == "__main__":
     axes[2].set_title("3. Squared daily returns")
     axes[2].set_ylabel("Squared return")
 
-    axes[3].plot(steps.index, steps["rv_past"])
-    axes[3].set_title(
+    # 3. Construct the figure plot
+    fig, axes = plt.subplots(
+            2,1,figsize = (14,15),
+            sharex = True
+    )
+
+
+    axes[0].plot(steps.index, steps["rv_past"])
+    axes[0].set_title(
         f"4. Historical {HORIZON}-session realized volatility"
     )
-    axes[3].set_ylabel("Realized volatility")
+    axes[0].set_ylabel("Realized volatility")
 
-    axes[4].plot(
+    axes[1].plot(
         steps.index,
         steps["rv_past"],
         label="Past volatility"
     )
 
-    axes[4].plot(
+    axes[1].plot(
         steps.index,
         steps["rv_future"],
         label="Future volatility",
         alpha=0.8
     )
 
-    axes[4].set_title("5. Past versus future volatility")
-    axes[4].set_ylabel("Realized volatility")
-    axes[4].legend()
+    axes[1].set_title("5. Past versus future volatility")
+    axes[1].set_ylabel("Realized volatility")
+    axes[1].legend()
 
     for ax in axes:
             ax.grid(alpha=0.25)
