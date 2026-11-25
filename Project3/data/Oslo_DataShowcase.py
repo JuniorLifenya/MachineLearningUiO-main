@@ -86,21 +86,38 @@ def oslo_per_instrument(prices):
     return pd.DataFrame(rows).set_index("instrument")
 
 
+def ljung_box_pvalues(x, lags=(5, 20)):
+    """Ljung-Box Q test on x. Uses scipy.special only (avoids scipy.signal)."""
+    from scipy.special import gammaincc   # chi2 survival fn, no signal dep
+    x = np.asarray(x, dtype=float)
+    x = x[~np.isnan(x)]
+    n = len(x)
+    if n < max(lags) + 1:
+        return {f"LB{m}": np.nan for m in lags}
+    xc = x - x.mean()
+    var = np.mean(xc ** 2)
+    acf = np.array([np.sum(xc[k:] * xc[:-k]) / (n * var)
+                    for k in range(1, max(lags) + 1)])
+    out = {}
+    for m in lags:
+        Q = n * (n + 2) * np.sum(acf[:m] ** 2 / (n - np.arange(1, m + 1)))
+        p = gammaincc(m / 2.0, Q / 2.0)   # chi2.sf(Q, df=m)
+        out[f"LB{m}_r2_p"] = f"{p:.2e}"
+    return out
+
+
 def oslo_dependence(prices):
-    """Is volatility clustered? Test squared returns for autocorrelation."""
     r = log_returns(prices)
     rows = []
     for col in r.columns:
         s = r[col].dropna()
         row = {
-            "instrument":     col,
-            "acf_r_lag1":     round(float(s.autocorr(1)), 3),
-            "acf_r_lag5":     round(float(s.autocorr(5)), 3),
-            "acf_r_lag10":    round(float(s.autocorr(10)), 3),
+            "instrument":   col,
+            "acf_r_lag1":   round(float(s.autocorr(1)), 3),
+            "acf_r_lag5":   round(float(s.autocorr(5)), 3),
+            "acf_r_lag10":  round(float(s.autocorr(10)), 3),
         }
-        if HAS_STATSMODELS:
-            row["LB5_r2_p"]  = f"{acorr_ljungbox(s**2, lags=[5],  return_df=True)['lb_pvalue'].iloc[0]:.2e}"
-            row["LB20_r2_p"] = f"{acorr_ljungbox(s**2, lags=[20], return_df=True)['lb_pvalue'].iloc[0]:.2e}"
+        row.update(ljung_box_pvalues(s ** 2, lags=(5, 20)))
         rows.append(row)
     return pd.DataFrame(rows).set_index("instrument")
 
