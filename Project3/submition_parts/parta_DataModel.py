@@ -11,7 +11,7 @@ from data import Kaggle_Data_download  as Kaggle_Data_download
 
 
 # ===================================================================================================================
-#                       Data Production: Transition-Label and Feasibility
+#                Data Production: Transition-Label and Feasibility
 # ===================================================================================================================
 
 def realized_vol(returns,horizon= 5):
