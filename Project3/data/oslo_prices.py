@@ -120,11 +120,8 @@ def audit_price_panel(prices: pd.DataFrame) -> dict:
         "passes_basic_contract": all(checks.values()),
     }
 
-prices = load_oslo_prices(
-    "oslo-stocks-2023-2025.xlsx"
-)
-
-report = audit_price_panel(prices)
-
-for key, value in report.items():
-    print(f"{key}: {value}")
+if __name__ == "__main__":
+    prices = load_oslo_prices("oslo-stocks-2023-2025.xlsx")
+    report = audit_price_panel(prices)
+    for key, value in report.items():
+        print(f"{key}: {value}")
