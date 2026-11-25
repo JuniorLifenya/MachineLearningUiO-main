@@ -7,7 +7,7 @@ import sys
 
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
-from data.oslo_prices import load_oslo_prices, audit_price_panel
+from oslo_Dataprices_download import load_oslo_prices, audit_price_panel
 
 try:
     from statsmodels.stats.diagnostic import acorr_ljungbox
