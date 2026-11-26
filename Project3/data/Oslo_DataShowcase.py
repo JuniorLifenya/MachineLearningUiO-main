@@ -132,7 +132,7 @@ def render_table(df, path, title):
     t = ax.table(cellText=fmt.values, rowLabels=df.index,
                  colLabels=df.columns.tolist(), loc="center", cellLoc="center")
     t.auto_set_font_size(False); t.set_fontsize(9); t.scale(1, 1.55)
-    fig.savefig(path, format="svg", bbox_inches="tight"); plt.close(fig)
+    fig.savefig(path, format="png", bbox_inches="tight"); plt.close(fig)
 
 
 def oslo_normalized_prices(prices, path):
@@ -144,7 +144,7 @@ def oslo_normalized_prices(prices, path):
     ax.set_ylabel("cumulative price (base 100)")
     ax.set_title("Oslo equities: cumulative performance")
     ax.legend(ncol=5, fontsize=8, frameon=False); ax.grid(alpha=0.25)
-    fig.savefig(path, format="svg", bbox_inches="tight"); plt.close(fig)
+    fig.savefig(path, format="png", bbox_inches="tight"); plt.close(fig)
 
 
 def oslo_returns(prices, path):
@@ -155,7 +155,7 @@ def oslo_returns(prices, path):
     ax.set_ylabel("daily log return")
     ax.set_title("Oslo equities: daily log returns")
     ax.legend(ncol=5, fontsize=8, frameon=False); ax.grid(alpha=0.2)
-    fig.savefig(path, format="svg", bbox_inches="tight"); plt.close(fig)
+    fig.savefig(path, format="png", bbox_inches="tight"); plt.close(fig)
 
 
 def oslo_rolling_vol(prices, path, windows=(5, 20)):
@@ -169,7 +169,7 @@ def oslo_rolling_vol(prices, path, windows=(5, 20)):
         ax.set_title(f"{w}-session realized volatility (non-annualized)")
         ax.legend(ncol=5, fontsize=8, frameon=False); ax.grid(alpha=0.25)
     fig.tight_layout()
-    fig.savefig(path, format="svg", bbox_inches="tight"); plt.close(fig)
+    fig.savefig(path, format="png", bbox_inches="tight"); plt.close(fig)
 
 
 def oslo_correlation(prices, path):
@@ -184,7 +184,7 @@ def oslo_correlation(prices, path):
                     color="white" if abs(corr.values[i,j]) > 0.6 else "black", fontsize=9)
     ax.set_title("Oslo: daily log-return correlation")
     fig.colorbar(im, ax=ax, label="Pearson r", shrink=0.85)
-    fig.savefig(path, format="svg", bbox_inches="tight"); plt.close(fig)
+    fig.savefig(path, format="png", bbox_inches="tight"); plt.close(fig)
 
 
 # --- main ------------------------------------------------------------------
@@ -198,14 +198,14 @@ if __name__ == "__main__":
 
     print(s, "\n"); print(p, "\n"); print(d)
 
-    render_table(s, FIG / "s2_oslo_summary.svg",        "Oslo panel — summary")
-    render_table(p, FIG / "s2_oslo_per_instrument.svg", "Oslo panel — per instrument")
-    render_table(d, FIG / "s2_oslo_dependence.svg",     "Oslo panel — temporal dependence")
+    render_table(s, FIG / "s2_oslo_summary.png",        "Oslo panel — summary")
+    render_table(p, FIG / "s2_oslo_per_instrument.png", "Oslo panel — per instrument")
+    render_table(d, FIG / "s2_oslo_dependence.png",     "Oslo panel — temporal dependence")
 
-    oslo_normalized_prices(prices, FIG / "s2_oslo_normalized.svg")
-    oslo_returns(prices,           FIG / "s2_oslo_returns.svg")
-    oslo_rolling_vol(prices,       FIG / "s2_oslo_rolling_vol.svg")
-    oslo_correlation(prices,       FIG / "s2_oslo_correlation.svg")
+    oslo_normalized_prices(prices, FIG / "s2_oslo_normalized.png")
+    oslo_returns(prices,           FIG / "s2_oslo_returns.png")
+    oslo_rolling_vol(prices,       FIG / "s2_oslo_rolling_vol.png")
+    oslo_correlation(prices,       FIG / "s2_oslo_correlation.png")
 
     # TEL zero-return investigation
     r = log_returns(prices)
