@@ -19,12 +19,23 @@ def split_with_purge(df, train_frac=0.6, val_frac=0.2, purge=5):
     )
 
 
-def count_episodes(y):
-    y = np.asarray(y).astype(int)
-    if len(y) == 0:
-        return 0
-    edges = np.diff(np.concatenate([[0], y, [0]]))
-    return int(np.sum(edges == 1))
+def count_episodes(split, q):
+    # Keep the original timeline.
+    eligible = split["rv_past"] <= q
+
+    # Ineligible dates are False, not removed.
+    positive = pd.Series(False, index=split.index)
+
+    positive.loc[eligible] = (
+        split.loc[eligible, "rv_future"] > q
+    )
+
+    # Count transitions from False to True.
+    starts = positive & ~positive.shift(
+        1, fill_value=False
+    )
+
+    return int(starts.sum())
 
 
 def feasibility_report(model_data, q_pct=0.80):
@@ -38,12 +49,25 @@ def feasibility_report(model_data, q_pct=0.80):
               f"{'eligible':>9s} {'pos':>5s} {'episodes':>9s} {'rate':>8s}")
     print(header)
     print("-" * len(header))
-    for name, split in [("train", train), ("val", val), ("test", test)]:
+    for name, split in [
+        ("train", train),
+        ("val", val),
+        ("test", test)
+    ]:
         elig = split[split["rv_past"] <= q]
         y = (elig["rv_future"] > q).astype(int)
-        rng = f"{split.index[0].date()} -> {split.index[-1].date()}"
-        print(f"{name:8s} {rng:25s} {len(elig):9d} {int(y.sum()):5d} "
-              f"{count_episodes(y):9d} {y.mean():8.2%}")
+
+        episodes = count_episodes(split, q)
+        eligible_pct = 100 * len(elig) / len(split)
+
+        print(
+            f"{name:8s} "
+            f"eligible={len(elig):5d} "
+            f"({eligible_pct:5.1f}%) "
+            f"positive={int(y.sum()):4d} "
+            f"episodes={episodes:4d} "
+            f"rate={y.mean():7.2%}"
+        )
     return q
 
 
