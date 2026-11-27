@@ -40,7 +40,10 @@ def count_episodes(split, q):
 
 def feasibility_report(model_data, q_pct=0.80):
     train, val, test = split_with_purge(model_data)
-    q = train["rv_past"].quantile(q_pct)
+    q = train["rv_past"].quantile(
+        q_pct,
+        interpolation="linear"
+    )
     print(f"Threshold q_{q_pct:.2f} (train only): {q:.6f}")
     print(f"Split sizes after purge: "
           f"train={len(train)}  val={len(val)}  test={len(test)}")
@@ -57,16 +60,20 @@ def feasibility_report(model_data, q_pct=0.80):
         elig = split[split["rv_past"] <= q]
         y = (elig["rv_future"] > q).astype(int)
 
-        episodes = count_episodes(split, q)
+        positive_runs = count_episodes(split, q)
         eligible_pct = 100 * len(elig) / len(split)
 
+        date_range = (
+            f"{split.index[0].date()} -> "
+            f"{split.index[-1].date()}"
+        )
+
         print(
-            f"{name:8s} "
-            f"eligible={len(elig):5d} "
-            f"({eligible_pct:5.1f}%) "
-            f"positive={int(y.sum()):4d} "
-            f"episodes={episodes:4d} "
-            f"rate={y.mean():7.2%}"
+            f"{name:8s} {date_range:25s} "
+            f"{len(elig):6d} "
+            f"{int(y.sum()):6d} "
+            f"{positive_runs:6d} "
+            f"{y.mean():8.2%}"
         )
     return q
 
